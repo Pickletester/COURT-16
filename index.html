@@ -125,20 +125,57 @@
     }
     return [];
   }
+
+  // 🔎 SMART COURT MATCHING (updated)
   function containsCourtN(rec, n){
-    n = Number(n)||1;
+    n = Number(n) || 1;
     try{
       var txt = "";
-      var fields = ["Courts","CourtName","ResourceName","Resources","Description","Notes","Title","EventName","Name"];
-      for(var i=0;i<fields.length;i++){ var k=fields[i]; if(rec && rec[k]){ if(rec[k] instanceof Array){ txt += " " + rec[k].join(", "); } else txt += " " + String(rec[k]); } }
+      var fields = [
+        "Courts","CourtName","ResourceName","Resources",
+        "Description","Notes","Title","EventName","Name"
+      ];
+      for(var i=0;i<fields.length;i++){
+        var k = fields[i];
+        if(rec && rec[k]){
+          if(Array.isArray(rec[k])) txt += " " + rec[k].join(", ");
+          else txt += " " + String(rec[k]);
+        }
+      }
+
       txt = txt.toLowerCase();
-      if(txt.indexOf("court #"+n) >= 0) return true;
-      if(txt.indexOf("court "+n) >= 0) return true;
-      if(txt.indexOf("courts "+n) >= 0) return true;
-      var m, rg=/courts?\s+(\d+)\s*[-–]\s*(\d+)/g;
-      while((m=rg.exec(txt))!==null){ var a=+m[1], b=+m[2]; if(n>=Math.min(a,b) && n<=Math.max(a,b)) return true; }
+
+      // simple direct matches (covers "court 16", "court #16", "courts 16")
+      if (txt.indexOf("court "+n) >= 0) return true;
+      if (txt.indexOf("court #"+n) >= 0) return true;
+      if (txt.indexOf("courts "+n) >= 0) return true;
+
+      // normalize odd characters & spacing
+      txt = txt
+        .replace(/&amp;/g, "&")
+        .replace(/–/g, "-")
+        .replace(/—/g, "-")
+        .replace(/\u00a0/g, " ") // NBSP -> space
+        .replace(/\s+/g, " ");
+
+      // look for numeric ranges like "4-6", "11-16", even if multiple: "4-6 & 11-16"
+      var ranges = txt.match(/\d+\s*-\s*\d+/g);
+      if (ranges){
+        for (var j=0; j<ranges.length; j++){
+          var m = ranges[j].match(/(\d+)\s*-\s*(\d+)/);
+          if (m){
+            var a = +m[1], b = +m[2];
+            if (n >= Math.min(a,b) && n <= Math.max(a,b)){
+              return true;
+            }
+          }
+        }
+      }
+
       return false;
-    }catch(e){ return false; }
+    }catch(e){
+      return false;
+    }
   }
 
   // ======= CLOCK =======
@@ -158,7 +195,14 @@
       x.open("GET", url, true);
       x.timeout = timeoutMs||8000;
       if(headers){ for(var k in headers){ if(headers.hasOwnProperty(k)){ x.setRequestHeader(k, headers[k]); } } }
-      x.onreadystatechange = function(){ if(x.readyState === 4){ if(x.status >= 200 && x.status < 300){ var data=null; try{ data=JSON.parse(x.responseText); }catch(e){ data=null; } cb(null, data); } else { cb(new Error("HTTP "+x.status)); } } };
+      x.onreadystatechange = function(){
+        if(x.readyState === 4){
+          if(x.status >= 200 && x.status < 300){
+            var data=null; try{ data=JSON.parse(x.responseText); }catch(e){ data=null; }
+            cb(null, data);
+          } else { cb(new Error("HTTP "+x.status)); }
+        }
+      };
       x.ontimeout = function(){ cb(new Error("timeout")); };
       x.onerror = function(){ cb(new Error("network")); };
       x.send();
