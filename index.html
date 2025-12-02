@@ -78,7 +78,7 @@
 </head>
 <body>
   <div class="bar" id="bar">
-    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">16</div></div>
+    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">4</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
@@ -88,7 +88,7 @@
 <script>
 (function(){
   // ======= CONFIG =======
-  var COURT_NO = 16;
+  var COURT_NO = 16;   // <--- change per court
   var ORG_MEMBER_ID = "12674";
   var AUTH_B64 = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
   var TZ = "America/New_York";
@@ -125,20 +125,74 @@
     }
     return [];
   }
+
+  // ======= SMART COURT FILTER (no Title dependency) =======
   function containsCourtN(rec, n){
-    n = Number(n)||1;
-    try{
-      var txt = "";
-      var fields = ["Courts","CourtName","ResourceName","Resources","Description","Notes","Title","EventName","Name"];
-      for(var i=0;i<fields.length;i++){ var k=fields[i]; if(rec && rec[k]){ if(rec[k] instanceof Array){ txt += " " + rec[k].join(", "); } else txt += " " + String(rec[k]); } }
-      txt = txt.toLowerCase();
-      if(txt.indexOf("court #"+n) >= 0) return true;
-      if(txt.indexOf("court "+n) >= 0) return true;
-      if(txt.indexOf("courts "+n) >= 0) return true;
-      var m, rg=/courts?\s+(\d+)\s*[-–]\s*(\d+)/g;
-      while((m=rg.exec(txt))!==null){ var a=+m[1], b=+m[2]; if(n>=Math.min(a,b) && n<=Math.max(a,b)) return true; }
+    n = Number(n) || 1;
+    if(!rec) return false;
+
+    var visited = (typeof WeakSet !== "undefined") ? new WeakSet() : null;
+
+    function stringHasCourtN(str, n){
+      if(!str) return false;
+      var s = String(str).toLowerCase();
+      if(s.indexOf("court") === -1) return false;
+
+      if(s.indexOf("court #"+n) >= 0) return true;
+      if(s.indexOf("court "+n)  >= 0) return true;
+      if(s.indexOf("courts "+n) >= 0) return true;
+
+      var rg = /courts?\s*#?\s*(\d+)\s*[-–]\s*#?\s*(\d+)/g;
+      var m;
+      while((m = rg.exec(s)) !== null){
+        var a = +m[1], b = +m[2];
+        if(n >= Math.min(a,b) && n <= Math.max(a,b)) return true;
+      }
+
+      if(s.indexOf(",") >= 0 || s.indexOf("&") >= 0 || s.indexOf("/") >= 0){
+        var listRg = /court(?:s)?[^0-9]*((\d+)(?:\s*[,/&]\s*\d+)*)/gi;
+        var lm;
+        while((lm = listRg.exec(s)) !== null){
+          var nums = lm[1].split(/[,/&]/);
+          for(var i=0;i<nums.length;i++){
+            var num = parseInt(nums[i],10);
+            if(num === n) return true;
+          }
+        }
+      }
       return false;
-    }catch(e){ return false; }
+    }
+
+    function scan(value, keyHint){
+      if(value == null) return false;
+      var t = typeof value;
+
+      if(t === "number"){
+        return value === n;
+      }
+      if(t === "string"){
+        return stringHasCourtN(value, n);
+      }
+      if(Array.isArray(value)){
+        for(var i=0;i<value.length;i++){
+          if(scan(value[i], keyHint)) return true;
+        }
+        return false;
+      }
+      if(t === "object"){
+        if(visited && visited.has(value)) return false;
+        if(visited) visited.add(value);
+        for(var k in value){
+          if(!Object.prototype.hasOwnProperty.call(value,k)) continue;
+          var lowK = k.toLowerCase();
+          if(lowK === "title" || lowK === "eventname" || lowK === "name") continue;
+          if(scan(value[k], k)) return true;
+        }
+      }
+      return false;
+    }
+
+    return scan(rec, "");
   }
 
   // ======= CLOCK =======
@@ -158,7 +212,14 @@
       x.open("GET", url, true);
       x.timeout = timeoutMs||8000;
       if(headers){ for(var k in headers){ if(headers.hasOwnProperty(k)){ x.setRequestHeader(k, headers[k]); } } }
-      x.onreadystatechange = function(){ if(x.readyState === 4){ if(x.status >= 200 && x.status < 300){ var data=null; try{ data=JSON.parse(x.responseText); }catch(e){ data=null; } cb(null, data); } else { cb(new Error("HTTP "+x.status)); } } };
+      x.onreadystatechange = function(){
+        if(x.readyState === 4){
+          if(x.status >= 200 && x.status < 300){
+            var data=null; try{ data=JSON.parse(x.responseText); }catch(e){ data=null; }
+            cb(null, data);
+          } else { cb(new Error("HTTP "+x.status)); }
+        }
+      };
       x.ontimeout = function(){ cb(new Error("timeout")); };
       x.onerror = function(){ cb(new Error("network")); };
       x.send();
@@ -242,7 +303,6 @@
           if(lastCurName){ curEl.innerHTML = "Time expired — " + lastCurName; }
           else { curEl.innerHTML = "Time expired"; }
 
-          // Hold red for 30s, then go blue (and switch to next/idle)
           setTimeout(function(){
             setPulse("blue"); setBar("blue");
             resetExpiredVisuals();
@@ -254,6 +314,16 @@
             tick();
           }, 30000);
 
+        } else if (cdMode === "next") {
+          // Upcoming just hit 0 -> force fresh data so it becomes In Progress immediately
+          cdTarget = null;
+          cdMode   = "none";
+          out.className = "val";
+          out.textContent = "--";
+          lbl.textContent = "Time Left";
+          setPulse("blue");
+          setBar("blue");
+          try{ refresh(true); }catch(e){}
         } else {
           setPulse("blue"); setBar("blue");
           lbl.textContent = "Time Until";
@@ -273,31 +343,79 @@
     var curEl = document.getElementById('curv');
     var nxtEl = document.getElementById('nxtv');
 
-    if(cur){ lastCurName = cur.name + fmtTime(cur); }
-
     if(cur){
+      lastCurName = cur.name + fmtTime(cur);
+
+      // reset inline styles
+      curEl.className = "val";
+      curEl.style.backgroundColor = "";
+      curEl.style.borderRadius = "";
+      curEl.style.padding = "";
+
+      // title-based coloring
+      var title = (cur.name || "");
+      var tLow  = title.toLowerCase();
+      var tNorm = tLow.replace(/\s+/g,"").replace(/–/g,"-").replace(/—/g,"-");
+
+      var color = null;
+      if(tNorm.indexOf("4.0-4.9") >= 0){
+        color = "#c81e1e";      // red
+      } else if(tNorm.indexOf("3.5-3.9") >= 0){
+        color = "#8b5cf6";      // purple
+      } else if(tNorm.indexOf("3.0-3.4") >= 0){
+        color = "#16a34a";      // green
+      } else if(tNorm.indexOf("2.0-2.9") >= 0){
+        color = "#33b5ff";      // light blue
+      } else {
+        if(tLow.indexOf("advanced") >= 0)      color = "#c81e1e";
+        else if(tLow.indexOf("intermediate") >= 0) color = "#16a34a";
+        else if(tLow.indexOf("beginner") >= 0) color = "#33b5ff";
+      }
+
+      if(color){
+        curEl.style.backgroundColor = color;
+        curEl.style.borderRadius = "999px";
+        curEl.style.padding = "3px 10px";
+        curEl.style.color = "#ffffff";
+      }
+
       curEl.innerHTML = cur.name + fmtTime(cur);
       startCountdown(cur.end.getTime(), "cur");
     } else {
+      curEl.className = "val";
+      curEl.style.backgroundColor = "";
+      curEl.style.borderRadius = "";
+      curEl.style.padding = "";
       curEl.textContent = "No current event";
       if(nxt){ startCountdown(nxt.start.getTime(), "next"); }
       else { startCountdown(null, "none"); }
     }
-    if(nxt){ nxtEl.innerHTML = nxt.name + fmtTime(nxt); } else { nxtEl.textContent = "No upcoming event"; }
+
+    if(nxt){ nxtEl.innerHTML = nxt.name + fmtTime(nxt); }
+    else   { nxtEl.textContent = "No upcoming event"; }
   }
 
   // ======= DATA =======
   var lastGood = null;
 
   function buildDayUrls(){
-    var d = todayStrNY();
-    var ev = "https://api.courtreserve.com/api/v1/eventcalendar/eventlist?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)+"&startDate="+d+"T00:00:00&endDate="+d+"T23:59:59";
-    var res = "https://api.courtreserve.com/api/v1/reservationreport/listactive?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)+"&reservationsFromDate="+d+"T00:00:00&reservationsToDate="+d+"T23:59:59&includePlayers=true";
+    var d   = todayStrNY();
+    var rnd = new Date().getTime();   // cache-buster for TB1
+    var ev  = "https://api.courtreserve.com/api/v1/eventcalendar/eventlist"
+            + "?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)
+            + "&startDate="+d+"T00:00:00&endDate="+d+"T23:59:59"
+            + "&r="+rnd;
+    var res = "https://api.courtreserve.com/api/v1/reservationreport/listactive"
+            + "?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)
+            + "&reservationsFromDate="+d+"T00:00:00"
+            + "&reservationsToDate="+d+"T23:59:59"
+            + "&includePlayers=true"
+            + "&r="+rnd;
     return {ev:ev, res:res};
   }
 
   function normalizeEvent(x){
-    var nm = (x.EventName||x.Name||x.Title||"Event");
+    var nm = (x.EventName || x.Name || x.Title || "Event");
     var s = parseTimeAny(x.StartDateTime||x.StartTime||x.Start);
     var e = parseTimeAny(x.EndDateTime||x.EndTime||x.End);
     return (s && e) ? {name:nm, start:s, end:e, raw:x} : null;
@@ -327,11 +445,24 @@
 
   var toggle = 0, cacheEv = [], cacheRes = [], cacheDate = "";
 
-  function refresh(){
+  function refresh(forceNoToggle){
     var dstr = todayStrNY();
     if(cacheDate !== dstr){ cacheEv=[]; cacheRes=[]; cacheDate=dstr; toggle=0; }
 
     var urls = buildDayUrls();
+
+    // if forceNoToggle (coming from countdown), just fetch both fresh once
+    if(forceNoToggle){
+      xhrJSON(urls.ev,  {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
+        if(!errE){ cacheEv = pickArray(dataE); }
+        xhrJSON(urls.res, {"Authorization":AUTH_B64}, 8000, function(errR, dataR){
+          if(!errR){ cacheRes = pickArray(dataR); }
+          computeAndRender();
+        });
+      });
+      return;
+    }
+
     if(toggle === 0){
       xhrJSON(urls.ev, {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
         if(!errE){ cacheEv = pickArray(dataE); }
@@ -361,8 +492,16 @@
     for(i=0;i<cacheEv.length;i++){ var a=normalizeEvent(cacheEv[i]); if(a){ ev.push(a); } }
     var rs = [];
     for(i=0;i<cacheRes.length;i++){ var b=normalizeResv(cacheRes[i]); if(b){ rs.push(b); } }
-    var evC = []; for(i=0;i<ev.length;i++){ if(containsCourtN(ev[i].raw, COURT_NO)) evC.push(ev[i]); }
-    var rsC = []; for(i=0;i<rs.length;i++){ if(containsCourtN(rs[i].raw, COURT_NO)) rsC.push(rs[i]); }
+
+    var evC = [];
+    for(i=0;i<ev.length;i++){
+      if(containsCourtN(ev[i].raw, COURT_NO)) evC.push(ev[i]);
+    }
+    var rsC = [];
+    for(i=0;i<rs.length;i++){
+      if(containsCourtN(rs[i].raw, COURT_NO)) rsC.push(rs[i]);
+    }
+
     var all = rsC.concat(evC);
     all.sort(function(a,b){ return a.start - b.start; });
     var now = new Date();
@@ -381,7 +520,7 @@
 
   document.getElementById('cno').textContent = String(COURT_NO);
   tickClock();
-  refresh();
+  refresh(false);
   setInterval(refresh, 30000);
 })();
 </script>
