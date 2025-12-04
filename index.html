@@ -14,7 +14,7 @@
       display:grid; grid-template-columns:1.2fr 2.2fr 1.1fr 2.1fr 1.2fr;
       gap:4px; padding:8px 12px; box-sizing:border-box;
       transition: background 400ms ease;
-      background:linear-gradient(90deg,#14203a,#22335d 70%); /* default blue */
+      background:linear-gradient(90deg,#14203a,#22335d 70%);
     }
     .bar.red{ background:linear-gradient(90deg,#4a0000,#c02020 70%); }
 
@@ -93,7 +93,7 @@
       pointer-events:auto;
     }
     .overlayBox{
-      background-color:#0c0c0c; /* CHANGED from background: to background-color: */
+      background-color:#0c0c0c;
       border-radius:30px;
       padding:45px 80px 55px 80px;
       max-width:80%;
@@ -115,12 +115,10 @@
       margin:0 auto 12px auto;
       max-width:420px;
       max-height:120px;
-      /* DROP SHADOW */
       filter: drop-shadow(0 6px 8px rgba(0,0,0,0.65))
               drop-shadow(0 0 10px rgba(0,0,0,0.45));
     }
 
-    /* SUPER BOLD LEVEL LABEL */
     .overlayLevel{
       font-size:56px;
       font-weight:900;
@@ -130,12 +128,6 @@
       color:#000000;
     }
 
-    .overlayTitle{
-      font-size:70px;
-      font-weight:1500;
-      margin-bottom:12px;
-      letter-spacing:.18em;
-    }
     .overlayBody{
       font-size:30px;
       line-height:1.25;
@@ -144,17 +136,9 @@
     }
 
     @keyframes popIn{
-      0%{
-        transform:scale(.7);
-        opacity:0;
-      }
-      80%{
-        transform:scale(1.05);
-      }
-      100%{
-        transform:scale(1);
-        opacity:1;
-      }
+      0%{ transform:scale(.7); opacity:0; }
+      80%{ transform:scale(1.05); }
+      100%{ transform:scale(1); opacity:1; }
     }
     @keyframes glowPulse{
       0%,100%{
@@ -175,7 +159,7 @@
 <body>
   <!-- COURT BAR -->
   <div class="bar" id="bar">
-    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">4</div></div>
+    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">2</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
@@ -185,9 +169,7 @@
   <!-- FULL-SCREEN POPUP OVERLAY -->
   <div id="infoOverlay">
     <div class="overlayBox" id="overlayBox">
-      <!-- put your LevelUp PNG in same folder, named levelup-logo.png -->
       <img src="levelup-logo.png" alt="LevelUp Pickleball" class="overlayLogo">
-      <!-- NEW: level text goes here -->
       <div class="overlayLevel" id="overlayLevel" style="display:none;"></div>
       <div class="overlayBody" id="overlayBody">Loading...</div>
     </div>
@@ -196,28 +178,40 @@
 <script>
 (function(){
   // ======= CONFIG =======
-  var COURT_NO = 16;   // <--- change per court
+  var COURT_NO      = 16;   // <--- court number
   var ORG_MEMBER_ID = "12674";
-  var AUTH_B64 = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
-  var TZ = "America/New_York";
+  var AUTH_B64      = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
+  var TZ            = "America/New_York";
 
-  // store current level for overlay
   var currentLevelLabel = "";
   var currentLevelBg    = "#0c0c0c";
 
   // ======= UTIL =======
   function pad2(n){ return (n<10?"0":"")+n; }
   function toLocalNY(d){
-    try{ return d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true, timeZone: TZ}); }
-    catch(e){ return d.getHours()+":"+pad2(d.getMinutes()); }
+    try{
+      return d.toLocaleTimeString('en-US', {
+        hour:'numeric', minute:'2-digit', hour12:true, timeZone: TZ
+      });
+    } catch(e){
+      return d.getHours()+":"+pad2(d.getMinutes());
+    }
   }
   function todayStrNY(){
-    try{ return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
-    catch(e){ var n=new Date(); return n.getFullYear()+"-"+pad2(n.getMonth()+1)+"-"+pad2(n.getDate()); }
+    try{
+      return new Intl.DateTimeFormat('en-CA',{
+        timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'
+      }).format(new Date());
+    } catch(e){
+      var n=new Date();
+      return n.getFullYear()+"-"+pad2(n.getMonth()+1)+"-"+pad2(n.getDate());
+    }
   }
   function parseTimeAny(t){
     if(!t){return null;}
-    if(Object.prototype.toString.call(t)==='[object Date]'){ return isNaN(t.getTime())?null:t; }
+    if(Object.prototype.toString.call(t)==='[object Date]'){
+      return isNaN(t.getTime())?null:t;
+    }
     if(typeof t==='number'){ return new Date(t>1e12?t:t*1000); }
     if(typeof t==='string'){
       var s=t.trim();
@@ -323,7 +317,13 @@
       var x = new XMLHttpRequest();
       x.open("GET", url, true);
       x.timeout = timeoutMs||8000;
-      if(headers){ for(var k in headers){ if(headers.hasOwnProperty(k)){ x.setRequestHeader(k, headers[k]); } } }
+      if(headers){
+        for(var k in headers){
+          if(headers.hasOwnProperty(k)){
+            x.setRequestHeader(k, headers[k]);
+          }
+        }
+      }
       x.onreadystatechange = function(){
         if(x.readyState === 4){
           if(x.status >= 200 && x.status < 300){
@@ -333,7 +333,7 @@
         }
       };
       x.ontimeout = function(){ cb(new Error("timeout")); };
-      x.onerror = function(){ cb(new Error("network")); };
+      x.onerror   = function(){ cb(new Error("network")); };
       x.send();
     }catch(e){ cb(e); }
   }
@@ -342,6 +342,7 @@
   var cdTimer = null, cdMode = "none", cdTarget = null;
   var nxtStart = null;
   var lastCurName = "";
+  var lastGood = null;
 
   function setPulse(mode){
     var el = document.getElementById('cno');
@@ -427,7 +428,6 @@
           }, 30000);
 
         } else if (cdMode === "next") {
-          // Upcoming just hit 0 -> force fresh data so it becomes In Progress immediately
           cdTarget = null;
           cdMode   = "none";
           out.className = "val";
@@ -449,15 +449,16 @@
     tick();
   }
 
-  function fmtTime(d){ return "<div class='meta'>"+toLocalNY(d.start)+" - "+toLocalNY(d.end)+"</div>"; }
+  function fmtTime(d){
+    return "<div class='meta'>"+toLocalNY(d.start)+" - "+toLocalNY(d.end)+"</div>";
+  }
 
-  // helper to detect level + colors from title
+  // ===== LEVEL COLOR / LABEL FROM TITLE =====
   function getLevelInfoFromTitle(title){
     var t = (title || "");
     var tLow  = t.toLowerCase();
     var tNorm = tLow.replace(/\s+/g,"").replace(/–/g,"-").replace(/—/g,"-");
 
-    // default: no level
     var info = {
       bubbleColor: null,
       label: "",
@@ -465,23 +466,22 @@
     };
 
     if(tNorm.indexOf("4.0-4.9") >= 0){
-      info.bubbleColor = "#c81e1e";   // red
+      info.bubbleColor = "#c81e1e";
       info.label       = "Advanced";
       info.overlayBg   = "#b91c1c";
     } else if(tNorm.indexOf("3.5-3.9") >= 0){
-      info.bubbleColor = "#8139be";   // purple
+      info.bubbleColor = "#8139be";
       info.label       = "Intermediate +";
       info.overlayBg   = "#8139be";
     } else if(tNorm.indexOf("3.0-3.4") >= 0){
-      info.bubbleColor = "#16a34a";   // green
+      info.bubbleColor = "#16a34a";
       info.label       = "Intermediate";
       info.overlayBg   = "#22c55e";
     } else if(tNorm.indexOf("2.0-2.9") >= 0){
-      info.bubbleColor = "#33b5ff";   // light blue
+      info.bubbleColor = "#33b5ff";
       info.label       = "Beginner";
       info.overlayBg   = "#38bdf8";
     } else {
-      // text-based fallback
       if(tLow.indexOf("advanced") >= 0){
         info.bubbleColor = "#c81e1e";
         info.label       = "Advanced";
@@ -503,6 +503,24 @@
     return info;
   }
 
+  // ===== CANCELLED EVENT FILTER (NEW) =====
+  function isCancelledEvent(x){
+    if(!x || typeof x !== "object") return false;
+
+    if(x.IsCanceled === true || x.IsCancelled === true || x.Cancelled === true) return true;
+    if(x.IsActive === false || x.Active === false) return true;
+
+    var statusStr = "";
+    if(typeof x.Status === "string")              statusStr += " " + x.Status;
+    if(typeof x.EventStatus === "string")         statusStr += " " + x.EventStatus;
+    if(typeof x.RegistrationStatus === "string")  statusStr += " " + x.RegistrationStatus;
+
+    statusStr = statusStr.toLowerCase();
+    if(statusStr.indexOf("cancel") >= 0) return true;
+
+    return false;
+  }
+
   function render(cur, nxt){
     var curEl = document.getElementById('curv');
     var nxtEl = document.getElementById('nxtv');
@@ -510,14 +528,12 @@
     if(cur){
       lastCurName = cur.name + fmtTime(cur);
 
-      // reset inline styles
       curEl.className = "val";
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
       curEl.style.padding = "";
       curEl.style.color = "";
 
-      // determine level colors + label
       var levelInfo = getLevelInfoFromTitle(cur.name || "");
       currentLevelLabel = levelInfo.label;
       currentLevelBg    = levelInfo.overlayBg;
@@ -549,11 +565,9 @@
   }
 
   // ======= DATA =======
-  var lastGood = null;
-
   function buildDayUrls(){
     var d   = todayStrNY();
-    var rnd = new Date().getTime();   // cache-buster for TB1
+    var rnd = new Date().getTime();
     var ev  = "https://api.courtreserve.com/api/v1/eventcalendar/eventlist"
             + "?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)
             + "&startDate="+d+"T00:00:00&endDate="+d+"T23:59:59"
@@ -567,13 +581,30 @@
     return {ev:ev, res:res};
   }
 
-  // --- mark events as kind:"event"
   function normalizeEvent(x){
-    var nm = (x.EventName || x.Name || x.Title || "Event");
-    var s = parseTimeAny(x.StartDateTime||x.StartTime||x.Start);
-    var e = parseTimeAny(x.EndDateTime||x.EndTime||x.End);
-    return (s && e) ? {kind:"event", name:nm, start:s, end:e, raw:x} : null;
+  if(!x) return null;
+
+  // 1) Generic cancel logic (flags / statuses)
+  if(isCancelledEvent(x)) return null;
+
+  // 2) HARD FILTER: ignore the ghost event
+  //    "Junior Free Drop In - High School #1722071"
+  var nmFull = (x.EventName || x.Name || x.Title || "");
+  var nmFullLower = nmFull.toLowerCase();
+  if (
+    nmFull.indexOf("#1722071") >= 0 ||                         // by ID
+    nmFullLower.indexOf("junior free drop in - high school") >= 0 // by name
+  ){
+    return null;
   }
+
+  // 3) Normal normalization
+  var s = parseTimeAny(x.StartDateTime || x.StartTime || x.Start);
+  var e = parseTimeAny(x.EndDateTime   || x.EndTime   || x.End);
+  var nm = nmFull || "Event";
+
+  return (s && e) ? { kind:"event", name:nm, start:s, end:e, raw:x } : null;
+}
 
   function shortName(p){
     var fn = (p.FirstName||"").trim();
@@ -582,7 +613,6 @@
     return (init && ln) ? (init+" "+ln) : (init || ln || "");
   }
 
-  // --- mark reservations as kind:"res"
   function normalizeResv(x){
     var s = parseTimeAny(x.StartTime||x.StartDateTime||x.Start);
     var e = parseTimeAny(x.EndTime||x.EndDateTime||x.End);
@@ -606,7 +636,6 @@
 
     var urls = buildDayUrls();
 
-    // if forceNoToggle (coming from countdown), just fetch both fresh once
     if(forceNoToggle){
       xhrJSON(urls.ev,  {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
         if(!errE){ cacheEv = pickArray(dataE); }
@@ -642,24 +671,22 @@
     }
   }
 
-  // ===== choose In-Progress / Upcoming, prefer reservations over events =====
   function computeAndRender(){
-    var ev = []; var i;
+    var ev = [], rs = [], i;
+
     for(i=0;i<cacheEv.length;i++){
       var a = normalizeEvent(cacheEv[i]);
       if(a){ ev.push(a); }
     }
-    var rs = [];
     for(i=0;i<cacheRes.length;i++){
       var b = normalizeResv(cacheRes[i]);
       if(b){ rs.push(b); }
     }
 
-    var evC = [];
+    var evC = [], rsC = [];
     for(i=0;i<ev.length;i++){
       if(containsCourtN(ev[i].raw, COURT_NO)) evC.push(ev[i]);
     }
-    var rsC = [];
     for(i=0;i<rs.length;i++){
       if(containsCourtN(rs[i].raw, COURT_NO)) rsC.push(rs[i]);
     }
@@ -673,7 +700,6 @@
     for(i=0;i<all.length;i++){
       var it = all[i];
 
-      // pick current, but prefer reservations over events if overlapping
       if(now >= it.start && now <= it.end){
         if(!cur){
           cur = it;
@@ -684,7 +710,6 @@
         }
       }
 
-      // first future item becomes "next"
       if(!nxt && now < it.start){
         nxt = it;
       }
@@ -698,7 +723,7 @@
     else { render(null, null); }
   }
 
-  // ===== POPUP OVERLAY (GLOW, ON-THE-MINUTE, MIRROR "IN PROGRESS") =====
+  // ===== POPUP OVERLAY LOOP =====
   var infoOverlay   = document.getElementById("infoOverlay");
   var overlayBodyEl = document.getElementById("overlayBody");
   var overlayBoxEl  = document.getElementById("overlayBox");
@@ -710,12 +735,11 @@
     if(currentLevelLabel){
       overlayLevelEl.style.display = "block";
       overlayLevelEl.textContent  = currentLevelLabel;
-      // CHANGED: background -> backgroundColor for TB1
       overlayBoxEl.style.backgroundColor = currentLevelBg || "#0c0c0c";
     } else {
       overlayLevelEl.style.display = "none";
       overlayLevelEl.textContent  = "";
-      overlayBoxEl.style.backgroundColor = "#0c0c0c"; // default black when no level
+      overlayBoxEl.style.backgroundColor = "#0c0c0c";
     }
   }
 
@@ -723,17 +747,13 @@
     if(!infoOverlay) return;
     var curEl = document.getElementById("curv");
     if(curEl && overlayBodyEl){
-      // copy whatever is currently in the In Progress tab (name + time)
       overlayBodyEl.innerHTML = curEl.innerHTML || curEl.textContent || "";
     }
-
-    // apply level + background based on current event
     applyOverlayLevelStyles();
-
     infoOverlay.classList.add("active");
     setTimeout(function(){
       infoOverlay.classList.remove("active");
-    }, 10000); // visible for 10 seconds
+    }, 10000);
   }
 
   function startOverlayMinuteLoop(){
@@ -744,7 +764,7 @@
 
     setTimeout(function(){
       showInfoOverlay();
-      setInterval(showInfoOverlay, 60000); // repeat every minute
+      setInterval(showInfoOverlay, 60000);
     }, msUntilNextMinute);
   }
 
