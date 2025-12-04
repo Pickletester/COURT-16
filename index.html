@@ -73,16 +73,124 @@
     .nopulse::after{ content:none; }
 
     .expired-msg { font-size:28px; color:#ff4444; font-weight:900; }
-    .meta{ font-size:10px; color:#d8d8d8; }
+    .meta{ font-size:0px; color:#d8d8d8; }
+
+    /* ===== POPUP OVERLAY WITH GLOW (ON-THE-MINUTE) ===== */
+    #infoOverlay{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      background:rgba(0,0,0,.82);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 800ms ease;
+    }
+    #infoOverlay.active{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .overlayBox{
+      background-color:#0c0c0c; /* CHANGED from background: to background-color: */
+      border-radius:30px;
+      padding:45px 80px 55px 80px;
+      max-width:80%;
+      text-align:center;
+      color:#fff;
+      transform:scale(.82);
+      box-shadow:
+        0 0 15px rgba(0,140,255,.55),
+        0 0 30px rgba(0,90,255,.45),
+        0 0 60px rgba(60,120,255,.35);
+    }
+    #infoOverlay.active .overlayBox{
+      animation: popIn .9s cubic-bezier(.18,.89,.32,1) forwards,
+                 glowPulse 2.8s ease-in-out infinite;
+    }
+
+    .overlayLogo{
+      display:block;
+      margin:0 auto 12px auto;
+      max-width:420px;
+      max-height:120px;
+      /* DROP SHADOW */
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,0.65))
+              drop-shadow(0 0 10px rgba(0,0,0,0.45));
+    }
+
+    /* SUPER BOLD LEVEL LABEL */
+    .overlayLevel{
+      font-size:56px;
+      font-weight:900;
+      margin:16px 0 16px 0;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:#000000;
+    }
+
+    .overlayTitle{
+      font-size:70px;
+      font-weight:1500;
+      margin-bottom:12px;
+      letter-spacing:.18em;
+    }
+    .overlayBody{
+      font-size:30px;
+      line-height:1.25;
+      font-weight:700;
+      margin-top:10px;
+    }
+
+    @keyframes popIn{
+      0%{
+        transform:scale(.7);
+        opacity:0;
+      }
+      80%{
+        transform:scale(1.05);
+      }
+      100%{
+        transform:scale(1);
+        opacity:1;
+      }
+    }
+    @keyframes glowPulse{
+      0%,100%{
+        box-shadow:
+          0 0 15px rgba(0,140,255,.55),
+          0 0 30px rgba(0,90,255,.45),
+          0 0 60px rgba(60,120,255,.35);
+      }
+      50%{
+        box-shadow:
+          0 0 30px rgba(0,180,255,.9),
+          0 0 60px rgba(0,120,255,.7),
+          0 0 90px rgba(80,180,255,.6);
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- COURT BAR -->
   <div class="bar" id="bar">
     <div id="cn" class="sec"><div class="val pulse-blue" id="cno">4</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
     <div id="now" class="sec"><div class="label">Current Time</div><div class="val" id="clock">--:--</div></div>
+  </div>
+
+  <!-- FULL-SCREEN POPUP OVERLAY -->
+  <div id="infoOverlay">
+    <div class="overlayBox" id="overlayBox">
+      <!-- put your LevelUp PNG in same folder, named levelup-logo.png -->
+      <img src="levelup-logo.png" alt="LevelUp Pickleball" class="overlayLogo">
+      <!-- NEW: level text goes here -->
+      <div class="overlayLevel" id="overlayLevel" style="display:none;"></div>
+      <div class="overlayBody" id="overlayBody">Loading...</div>
+    </div>
   </div>
 
 <script>
@@ -92,6 +200,10 @@
   var ORG_MEMBER_ID = "12674";
   var AUTH_B64 = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
   var TZ = "America/New_York";
+
+  // store current level for overlay
+  var currentLevelLabel = "";
+  var currentLevelBg    = "#0c0c0c";
 
   // ======= UTIL =======
   function pad2(n){ return (n<10?"0":"")+n; }
@@ -339,6 +451,58 @@
 
   function fmtTime(d){ return "<div class='meta'>"+toLocalNY(d.start)+" - "+toLocalNY(d.end)+"</div>"; }
 
+  // helper to detect level + colors from title
+  function getLevelInfoFromTitle(title){
+    var t = (title || "");
+    var tLow  = t.toLowerCase();
+    var tNorm = tLow.replace(/\s+/g,"").replace(/–/g,"-").replace(/—/g,"-");
+
+    // default: no level
+    var info = {
+      bubbleColor: null,
+      label: "",
+      overlayBg: "#0c0c0c"
+    };
+
+    if(tNorm.indexOf("4.0-4.9") >= 0){
+      info.bubbleColor = "#c81e1e";   // red
+      info.label       = "Advanced";
+      info.overlayBg   = "#b91c1c";
+    } else if(tNorm.indexOf("3.5-3.9") >= 0){
+      info.bubbleColor = "#8139be";   // purple
+      info.label       = "Intermediate +";
+      info.overlayBg   = "#8139be";
+    } else if(tNorm.indexOf("3.0-3.4") >= 0){
+      info.bubbleColor = "#16a34a";   // green
+      info.label       = "Intermediate";
+      info.overlayBg   = "#22c55e";
+    } else if(tNorm.indexOf("2.0-2.9") >= 0){
+      info.bubbleColor = "#33b5ff";   // light blue
+      info.label       = "Beginner";
+      info.overlayBg   = "#38bdf8";
+    } else {
+      // text-based fallback
+      if(tLow.indexOf("advanced") >= 0){
+        info.bubbleColor = "#c81e1e";
+        info.label       = "Advanced";
+        info.overlayBg   = "#b91c1c";
+      } else if(tLow.indexOf("intermediate +") >= 0 || tLow.indexOf("intermediate+") >= 0){
+        info.bubbleColor = "#8b5cf6";
+        info.label       = "Intermediate +";
+        info.overlayBg   = "#6d28d9";
+      } else if(tLow.indexOf("intermediate") >= 0){
+        info.bubbleColor = "#16a34a";
+        info.label       = "Intermediate";
+        info.overlayBg   = "#22c55e";
+      } else if(tLow.indexOf("beginner") >= 0){
+        info.bubbleColor = "#33b5ff";
+        info.label       = "Beginner";
+        info.overlayBg   = "#38bdf8";
+      }
+    }
+    return info;
+  }
+
   function render(cur, nxt){
     var curEl = document.getElementById('curv');
     var nxtEl = document.getElementById('nxtv');
@@ -351,29 +515,15 @@
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
       curEl.style.padding = "";
+      curEl.style.color = "";
 
-      // title-based coloring
-      var title = (cur.name || "");
-      var tLow  = title.toLowerCase();
-      var tNorm = tLow.replace(/\s+/g,"").replace(/–/g,"-").replace(/—/g,"-");
+      // determine level colors + label
+      var levelInfo = getLevelInfoFromTitle(cur.name || "");
+      currentLevelLabel = levelInfo.label;
+      currentLevelBg    = levelInfo.overlayBg;
 
-      var color = null;
-      if(tNorm.indexOf("4.0-4.9") >= 0){
-        color = "#c81e1e";      // red
-      } else if(tNorm.indexOf("3.5-3.9") >= 0){
-        color = "#8b5cf6";      // purple
-      } else if(tNorm.indexOf("3.0-3.4") >= 0){
-        color = "#16a34a";      // green
-      } else if(tNorm.indexOf("2.0-2.9") >= 0){
-        color = "#33b5ff";      // light blue
-      } else {
-        if(tLow.indexOf("advanced") >= 0)      color = "#c81e1e";
-        else if(tLow.indexOf("intermediate") >= 0) color = "#16a34a";
-        else if(tLow.indexOf("beginner") >= 0) color = "#33b5ff";
-      }
-
-      if(color){
-        curEl.style.backgroundColor = color;
+      if(levelInfo.bubbleColor){
+        curEl.style.backgroundColor = levelInfo.bubbleColor;
         curEl.style.borderRadius = "999px";
         curEl.style.padding = "3px 10px";
         curEl.style.color = "#ffffff";
@@ -382,6 +532,9 @@
       curEl.innerHTML = cur.name + fmtTime(cur);
       startCountdown(cur.end.getTime(), "cur");
     } else {
+      currentLevelLabel = "";
+      currentLevelBg    = "#0c0c0c";
+
       curEl.className = "val";
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
@@ -414,11 +567,12 @@
     return {ev:ev, res:res};
   }
 
+  // --- mark events as kind:"event"
   function normalizeEvent(x){
     var nm = (x.EventName || x.Name || x.Title || "Event");
     var s = parseTimeAny(x.StartDateTime||x.StartTime||x.Start);
     var e = parseTimeAny(x.EndDateTime||x.EndTime||x.End);
-    return (s && e) ? {name:nm, start:s, end:e, raw:x} : null;
+    return (s && e) ? {kind:"event", name:nm, start:s, end:e, raw:x} : null;
   }
 
   function shortName(p){
@@ -428,6 +582,7 @@
     return (init && ln) ? (init+" "+ln) : (init || ln || "");
   }
 
+  // --- mark reservations as kind:"res"
   function normalizeResv(x){
     var s = parseTimeAny(x.StartTime||x.StartDateTime||x.Start);
     var e = parseTimeAny(x.EndTime||x.EndDateTime||x.End);
@@ -440,7 +595,7 @@
     }
     if(!name && x.ReservationTypeName) name = x.ReservationTypeName;
     if(!name) name = "Reserved";
-    return {name:name, start:s, end:e, raw:x};
+    return {kind:"res", name:name, start:s, end:e, raw:x};
   }
 
   var toggle = 0, cacheEv = [], cacheRes = [], cacheDate = "";
@@ -487,11 +642,18 @@
     }
   }
 
+  // ===== choose In-Progress / Upcoming, prefer reservations over events =====
   function computeAndRender(){
     var ev = []; var i;
-    for(i=0;i<cacheEv.length;i++){ var a=normalizeEvent(cacheEv[i]); if(a){ ev.push(a); } }
+    for(i=0;i<cacheEv.length;i++){
+      var a = normalizeEvent(cacheEv[i]);
+      if(a){ ev.push(a); }
+    }
     var rs = [];
-    for(i=0;i<cacheRes.length;i++){ var b=normalizeResv(cacheRes[i]); if(b){ rs.push(b); } }
+    for(i=0;i<cacheRes.length;i++){
+      var b = normalizeResv(cacheRes[i]);
+      if(b){ rs.push(b); }
+    }
 
     var evC = [];
     for(i=0;i<ev.length;i++){
@@ -504,24 +666,93 @@
 
     var all = rsC.concat(evC);
     all.sort(function(a,b){ return a.start - b.start; });
+
     var now = new Date();
     var cur = null, nxt = null;
+
     for(i=0;i<all.length;i++){
       var it = all[i];
-      if(!cur && now >= it.start && now <= it.end){ cur = it; }
-      if(!nxt && now < it.start){ nxt = it; }
+
+      // pick current, but prefer reservations over events if overlapping
+      if(now >= it.start && now <= it.end){
+        if(!cur){
+          cur = it;
+        } else {
+          if(cur.kind === "event" && it.kind === "res"){
+            cur = it;
+          }
+        }
+      }
+
+      // first future item becomes "next"
+      if(!nxt && now < it.start){
+        nxt = it;
+      }
     }
+
     nxtStart = nxt ? nxt.start.getTime() : null;
+
     if(cur || nxt){ lastGood = {cur:cur, nxt:nxt}; }
     if(cur || nxt){ render(cur, nxt); }
     else if(lastGood){ render(lastGood.cur, lastGood.nxt); }
     else { render(null, null); }
   }
 
+  // ===== POPUP OVERLAY (GLOW, ON-THE-MINUTE, MIRROR "IN PROGRESS") =====
+  var infoOverlay   = document.getElementById("infoOverlay");
+  var overlayBodyEl = document.getElementById("overlayBody");
+  var overlayBoxEl  = document.getElementById("overlayBox");
+  var overlayLevelEl= document.getElementById("overlayLevel");
+
+  function applyOverlayLevelStyles(){
+    if(!overlayBoxEl || !overlayLevelEl) return;
+
+    if(currentLevelLabel){
+      overlayLevelEl.style.display = "block";
+      overlayLevelEl.textContent  = currentLevelLabel;
+      // CHANGED: background -> backgroundColor for TB1
+      overlayBoxEl.style.backgroundColor = currentLevelBg || "#0c0c0c";
+    } else {
+      overlayLevelEl.style.display = "none";
+      overlayLevelEl.textContent  = "";
+      overlayBoxEl.style.backgroundColor = "#0c0c0c"; // default black when no level
+    }
+  }
+
+  function showInfoOverlay(){
+    if(!infoOverlay) return;
+    var curEl = document.getElementById("curv");
+    if(curEl && overlayBodyEl){
+      // copy whatever is currently in the In Progress tab (name + time)
+      overlayBodyEl.innerHTML = curEl.innerHTML || curEl.textContent || "";
+    }
+
+    // apply level + background based on current event
+    applyOverlayLevelStyles();
+
+    infoOverlay.classList.add("active");
+    setTimeout(function(){
+      infoOverlay.classList.remove("active");
+    }, 10000); // visible for 10 seconds
+  }
+
+  function startOverlayMinuteLoop(){
+    if(!infoOverlay) return;
+    var now = new Date();
+    var msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    if(msUntilNextMinute < 100){ msUntilNextMinute = 100; }
+
+    setTimeout(function(){
+      showInfoOverlay();
+      setInterval(showInfoOverlay, 60000); // repeat every minute
+    }, msUntilNextMinute);
+  }
+
   document.getElementById('cno').textContent = String(COURT_NO);
   tickClock();
   refresh(false);
   setInterval(refresh, 30000);
+  startOverlayMinuteLoop();
 })();
 </script>
 </body>
