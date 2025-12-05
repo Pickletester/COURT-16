@@ -8,7 +8,12 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body { margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; background:transparent; font-family: Arial, Helvetica, sans-serif; }
+    html, body {
+      margin:0; padding:0; width:100vw; height:100vh;
+      overflow:hidden; background:transparent;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
     .bar{
       position:fixed; left:0; right:0; bottom:0; height:72px;
       display:grid; grid-template-columns:1.2fr 2.2fr 1.1fr 2.1fr 1.2fr;
@@ -16,36 +21,65 @@
       transition: background 400ms ease;
       background:linear-gradient(90deg,#14203a,#22335d 70%);
     }
-    .bar.red{ background:linear-gradient(90deg,#4a0000,#c02020 70%); }
+    .bar.red{
+      background:linear-gradient(90deg,#4a0000,#c02020 70%);
+    }
 
-    .sec{ position:relative; display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; border-radius:6px; }
-    .sec:not(#cn)::before{ content:""; position:absolute; left:3px; right:3px; top:3px; bottom:3px; background:#000; opacity:.78; border-radius:6px; }
+    .sec{
+      position:relative;
+      display:flex; flex-direction:column;
+      justify-content:center; align-items:center;
+      overflow:hidden; border-radius:6px;
+    }
+    .sec:not(#cn)::before{
+      content:""; position:absolute;
+      left:3px; right:3px; top:3px; bottom:3px;
+      background:#000; opacity:.78; border-radius:6px;
+    }
 
-    .label{ font-weight:700; text-transform:uppercase; font-size:10px; letter-spacing:.08em; z-index:1; margin-bottom:1px; color:#d4e5fd; }
-    #cur .label{ color:#6cff6c;} #nxt .label{ color:#ffe56b;}
+    .label{
+      font-weight:700; text-transform:uppercase;
+      font-size:10px; letter-spacing:.08em;
+      z-index:1; margin-bottom:1px; color:#d4e5fd;
+    }
+    #cur .label{ color:#6cff6c; }
+    #nxt .label{ color:#ffe56b; }
 
-    .val{ font-weight:800; z-index:1; text-align:center; line-height:1.08; color:#fff; padding:0 6px; }
-    #cur .val, #nxt .val{ font-size:14px; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+    .val{
+      font-weight:800; z-index:1;
+      text-align:center; line-height:1.08;
+      color:#fff; padding:0 6px;
+    }
+    #cur .val, #nxt .val{
+      font-size:14px;
+      white-space:normal; overflow-wrap:anywhere; word-break:break-word;
+    }
     #cd .val{ font-size:20px; }
     #now .val{ font-size:16px; }
 
     #cn{ transition: background 400ms ease; }
     #cn.alert::before{
-      content:""; position:absolute; left:3px; right:3px; top:3px; bottom:3px;
+      content:""; position:absolute;
+      left:3px; right:3px; top:3px; bottom:3px;
       background:linear-gradient(180deg,#4a0000,#a80000);
       opacity:.65; border-radius:10px;
     }
     #cn .val{
       position:relative;
-      font-size:58px; font-weight:900; padding:2px 12px; letter-spacing:.02em;
-      border:3px solid #fff; border-radius:10px; text-shadow:0 1px 2px rgba(0,0,0,.4);
+      font-size:58px; font-weight:900;
+      padding:2px 12px; letter-spacing:.02em;
+      border:3px solid #fff; border-radius:10px;
+      text-shadow:0 1px 2px rgba(0,0,0,.4);
       transition: border-color 300ms ease;
     }
 
     .pulse-blue { animation: pulseBlue 2.8s ease-in-out infinite; }
     .pulse-blue::after{
-      content:""; position:absolute; left:-5px; right:-5px; top:-5px; bottom:-5px; border-radius:14px;
-      animation: glowBlue 2.8s ease-in-out infinite; pointer-events:none;
+      content:""; position:absolute;
+      left:-5px; right:-5px; top:-5px; bottom:-5px;
+      border-radius:14px;
+      animation: glowBlue 2.8s ease-in-out infinite;
+      pointer-events:none;
     }
     @keyframes pulseBlue {
       0%,100%{ border-color:#ffffff; }
@@ -58,8 +92,11 @@
 
     .pulse-red { animation: pulseRed 2.2s ease-in-out infinite; }
     .pulse-red::after{
-      content:""; position:absolute; left:-6px; right:-6px; top:-6px; bottom:-6px; border-radius:14px;
-      animation: glowRed 2.2s ease-in-out infinite; pointer-events:none;
+      content:""; position:absolute;
+      left:-6px; right:-6px; top:-6px; bottom:-6px;
+      border-radius:14px;
+      animation: glowRed 2.2s ease-in-out infinite;
+      pointer-events:none;
     }
     @keyframes pulseRed {
       0%,100%{ border-color:#ffffff; }
@@ -73,12 +110,12 @@
     .nopulse::after{ content:none; }
 
     .expired-msg { font-size:28px; color:#ff4444; font-weight:900; }
-    .meta{ font-size:10px; color:#d8d8d8; }
+    .meta{ font-size:12px; color:#d8d8d8; }
 
     /* ===== POPUP OVERLAY WITH GLOW (ON-THE-MINUTE) ===== */
     #infoOverlay{
       position:fixed;
-      inset:0;
+      top:0; left:0; right:0; bottom:0;
       z-index:9999;
       background:rgba(0,0,0,.82);
       display:flex;
@@ -118,7 +155,6 @@
       filter: drop-shadow(0 6px 8px rgba(0,0,0,0.65))
               drop-shadow(0 0 10px rgba(0,0,0,0.45));
     }
-
     .overlayLevel{
       font-size:56px;
       font-weight:900;
@@ -127,7 +163,6 @@
       text-transform:uppercase;
       color:#000000;
     }
-
     .overlayBody{
       font-size:30px;
       line-height:1.25;
@@ -159,7 +194,7 @@
 <body>
   <!-- COURT BAR -->
   <div class="bar" id="bar">
-    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">2</div></div>
+    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">1</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
@@ -178,7 +213,7 @@
 <script>
 (function(){
   // ======= CONFIG =======
-  var COURT_NO      = 16;   // <--- court number
+  var COURT_NO      = 16;   // <<< CHANGE PER COURT
   var ORG_MEMBER_ID = "12674";
   var AUTH_B64      = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
   var TZ            = "America/New_York";
@@ -188,6 +223,7 @@
 
   // ======= UTIL =======
   function pad2(n){ return (n<10?"0":"")+n; }
+
   function toLocalNY(d){
     try{
       return d.toLocaleTimeString('en-US', {
@@ -197,6 +233,7 @@
       return d.getHours()+":"+pad2(d.getMinutes());
     }
   }
+
   function todayStrNY(){
     try{
       return new Intl.DateTimeFormat('en-CA',{
@@ -207,6 +244,7 @@
       return n.getFullYear()+"-"+pad2(n.getMonth()+1)+"-"+pad2(n.getDate());
     }
   }
+
   function parseTimeAny(t){
     if(!t){return null;}
     if(Object.prototype.toString.call(t)==='[object Date]'){
@@ -215,11 +253,14 @@
     if(typeof t==='number'){ return new Date(t>1e12?t:t*1000); }
     if(typeof t==='string'){
       var s=t.trim();
-      var m=s.match(/^\/Date\((\d+)\)\/$/i); if(m){ return new Date(parseInt(m[1],10)); }
-      var d=new Date(s); if(!isNaN(d.getTime())) return d;
+      var m=s.match(/^\/Date\((\d+)\)\/$/i);
+      if(m){ return new Date(parseInt(m[1],10)); }
+      var d=new Date(s);
+      if(!isNaN(d.getTime())) return d;
     }
     return null;
   }
+
   function pickArray(c){
     if(!c){return [];}
     if(c instanceof Array){return c;}
@@ -236,7 +277,6 @@
   function containsCourtN(rec, n){
     n = Number(n) || 1;
     if(!rec) return false;
-
     var visited = (typeof WeakSet !== "undefined") ? new WeakSet() : null;
 
     function stringHasCourtN(str, n){
@@ -291,6 +331,7 @@
         for(var k in value){
           if(!Object.prototype.hasOwnProperty.call(value,k)) continue;
           var lowK = k.toLowerCase();
+          // skip name/title fields so we don't match "(Courts 1-3)" text
           if(lowK === "title" || lowK === "eventname" || lowK === "name") continue;
           if(scan(value[k], k)) return true;
         }
@@ -327,7 +368,8 @@
       x.onreadystatechange = function(){
         if(x.readyState === 4){
           if(x.status >= 200 && x.status < 300){
-            var data=null; try{ data=JSON.parse(x.responseText); }catch(e){ data=null; }
+            var data=null;
+            try{ data=JSON.parse(x.responseText); }catch(e){ data=null; }
             cb(null, data);
           } else { cb(new Error("HTTP "+x.status)); }
         }
@@ -351,17 +393,19 @@
     else if(mode === "red"){ el.className += " pulse-red"; }
     else { el.className += " nopulse"; }
   }
+
   function setBar(mode){
     var bar = document.getElementById('bar');
-    var cn = document.getElementById('cn');
+    var cn  = document.getElementById('cn');
     if(mode === "red"){
       bar.className = "bar red";
-      cn.className = "sec alert";
+      cn.className  = "sec alert";
     } else {
       bar.className = "bar";
-      cn.className = "sec";
+      cn.className  = "sec";
     }
   }
+
   function resetExpiredVisuals(){
     var outEl = document.getElementById("cdv");
     outEl.className = "val";
@@ -389,24 +433,36 @@
       }
 
       var nowMs = (new Date()).getTime();
-      var diff = cdTarget - nowMs;
+      var diff  = cdTarget - nowMs;
 
       if(diff > 0){
-        if(cdMode === "cur" && diff <= 60000){ setPulse("red"); setBar("red"); }
-        else { setPulse("blue"); setBar("blue"); }
+        if(cdMode === "cur" && diff <= 60000){
+          setPulse("red"); setBar("red");
+        } else {
+          setPulse("blue"); setBar("blue");
+        }
 
-        if(out.className.indexOf("expired-msg") !== -1){ out.className = "val"; }
+        if(out.className.indexOf("expired-msg") !== -1){
+          out.className = "val";
+        }
 
         var totalSec = Math.floor(diff/1000);
         var totalMin = Math.floor(diff/60000);
-        if(diff <= 60000){ out.textContent = (totalSec%60) + "s"; }
-        else if(totalMin >= 60){ out.textContent = Math.floor(totalMin/60) + "h " + (totalMin%60) + "m"; }
-        else { out.textContent = totalMin + "m"; }
+        if(diff <= 60000){
+          out.textContent = (totalSec%60) + "s";
+        } else if(totalMin >= 60){
+          out.textContent = Math.floor(totalMin/60) + "h " + (totalMin%60) + "m";
+        } else {
+          out.textContent = totalMin + "m";
+        }
 
         lbl.textContent = (cdMode === "cur") ? "Time Left" : "Time Until";
         cdTimer = setTimeout(tick, 1000);
+
       } else {
+        // REACHED ZERO
         if (cdMode === "cur") {
+          // show TIME EXPIRED for ~30 seconds
           setPulse("red"); setBar("red");
           lbl.textContent = "";
           out.className = "val expired-msg";
@@ -420,22 +476,29 @@
             setPulse("blue"); setBar("blue");
             resetExpiredVisuals();
             if(nxtStart){
-              cdMode = "next"; cdTarget = nxtStart;
+              // if there's a next event, go into next countdown
+              cdMode   = "next";
+              cdTarget = nxtStart;
+              tick();
             } else {
-              cdMode = "none"; cdTarget = null;
+              // no upcoming event: clear everything so it doesn't stick
+              cdMode   = "none";
+              cdTarget = null;
+              lastGood = null;
+              refresh(true); // force re-eval + render(null,null)
             }
-            tick();
           }, 30000);
 
         } else if (cdMode === "next") {
+          // next just hit zero -> force fresh data so it flips to In Progress quickly
           cdTarget = null;
           cdMode   = "none";
           out.className = "val";
           out.textContent = "--";
           lbl.textContent = "Time Left";
-          setPulse("blue");
-          setBar("blue");
+          setPulse("blue"); setBar("blue");
           try{ refresh(true); }catch(e){}
+
         } else {
           setPulse("blue"); setBar("blue");
           lbl.textContent = "Time Until";
@@ -453,7 +516,7 @@
     return "<div class='meta'>"+toLocalNY(d.start)+" - "+toLocalNY(d.end)+"</div>";
   }
 
-  // ===== LEVEL COLOR / LABEL FROM TITLE =====
+  // ===== LEVEL COLOR / LABEL FROM TITLE (UPDATED RANGES) =====
   function getLevelInfoFromTitle(title){
     var t = (title || "");
     var tLow  = t.toLowerCase();
@@ -465,45 +528,83 @@
       overlayBg: "#0c0c0c"
     };
 
-    if(tNorm.indexOf("4.0-4.9") >= 0){
-      info.bubbleColor = "#c81e1e";
-      info.label       = "Advanced";
+    // 4.5+
+    if (
+      tNorm.indexOf("4.5+") >= 0 ||
+      tNorm.indexOf("4.5-") >= 0 ||
+      tNorm.indexOf("5.0") >= 0
+    ){
+      info.bubbleColor = "#dc2626"; // RED
+      info.label       = "4.5+";
       info.overlayBg   = "#b91c1c";
-    } else if(tNorm.indexOf("3.5-3.9") >= 0){
-      info.bubbleColor = "#8139be";
-      info.label       = "Intermediate +";
-      info.overlayBg   = "#8139be";
-    } else if(tNorm.indexOf("3.0-3.4") >= 0){
-      info.bubbleColor = "#16a34a";
-      info.label       = "Intermediate";
-      info.overlayBg   = "#22c55e";
-    } else if(tNorm.indexOf("2.0-2.9") >= 0){
-      info.bubbleColor = "#33b5ff";
-      info.label       = "Beginner";
-      info.overlayBg   = "#38bdf8";
+
+    // 4.0–4.49
+    } else if (
+      tNorm.indexOf("4.0-4.4")  >= 0 ||
+      tNorm.indexOf("4.0-4.49") >= 0 ||
+      tNorm.indexOf("4.0-4.5")  >= 0 ||
+      tNorm.indexOf("4.0-4")    >= 0
+    ){
+      info.bubbleColor = "#f97316"; // ORANGE
+      info.label       = "4.0–4.49";
+      info.overlayBg   = "#ea580c";
+
+    // 3.5–3.99
+    } else if (
+      tNorm.indexOf("3.5-3.9")  >= 0 ||
+      tNorm.indexOf("3.5-3.99") >= 0 ||
+      tNorm.indexOf("3.5+")     >= 0
+    ){
+      info.bubbleColor = "#8b5cf6"; // PURPLE
+      info.label       = "3.5–3.99";
+      info.overlayBg   = "#6d28d9";
+
+    // 3.0–3.49
+    } else if (
+      tNorm.indexOf("3.0-3.4")  >= 0 ||
+      tNorm.indexOf("3.0-3.49") >= 0
+    ){
+      info.bubbleColor = "#22c55e"; // GREEN
+      info.label       = "3.0–3.49";
+      info.overlayBg   = "#15803d";
+
+    // 2.0–2.99
+    } else if (
+      tNorm.indexOf("2.0-2.9")  >= 0 ||
+      tNorm.indexOf("2.0-2.99") >= 0
+    ){
+      info.bubbleColor = "#38bdf8"; // LIGHT BLUE
+      info.label       = "2.0–2.99";
+      info.overlayBg   = "#0ea5e9";
+
+    // TEXT FALLBACKS
     } else {
+
       if(tLow.indexOf("advanced") >= 0){
-        info.bubbleColor = "#c81e1e";
-        info.label       = "Advanced";
+        info.bubbleColor = "#dc2626";
+        info.label       = "4.5+";
         info.overlayBg   = "#b91c1c";
-      } else if(tLow.indexOf("intermediate +") >= 0 || tLow.indexOf("intermediate+") >= 0){
+
+      } else if(tLow.indexOf("intermediate+") >= 0){
         info.bubbleColor = "#8b5cf6";
-        info.label       = "Intermediate +";
+        info.label       = "3.5–3.99";
         info.overlayBg   = "#6d28d9";
+
       } else if(tLow.indexOf("intermediate") >= 0){
-        info.bubbleColor = "#16a34a";
-        info.label       = "Intermediate";
-        info.overlayBg   = "#22c55e";
+        info.bubbleColor = "#22c55e";
+        info.label       = "3.0–3.49";
+        info.overlayBg   = "#15803d";
+
       } else if(tLow.indexOf("beginner") >= 0){
-        info.bubbleColor = "#33b5ff";
-        info.label       = "Beginner";
-        info.overlayBg   = "#38bdf8";
+        info.bubbleColor = "#38bdf8";
+        info.label       = "2.0–2.99";
+        info.overlayBg   = "#0ea5e9";
       }
     }
     return info;
   }
 
-  // ===== CANCELLED EVENT FILTER (NEW) =====
+  // ===== CANCELLED EVENT FILTER =====
   function isCancelledEvent(x){
     if(!x || typeof x !== "object") return false;
 
@@ -540,9 +641,9 @@
 
       if(levelInfo.bubbleColor){
         curEl.style.backgroundColor = levelInfo.bubbleColor;
-        curEl.style.borderRadius = "999px";
-        curEl.style.padding = "3px 10px";
-        curEl.style.color = "#ffffff";
+        curEl.style.borderRadius    = "999px";
+        curEl.style.padding         = "3px 10px";
+        curEl.style.color           = "#ffffff";
       }
 
       curEl.innerHTML = cur.name + fmtTime(cur);
@@ -556,8 +657,9 @@
       curEl.style.borderRadius = "";
       curEl.style.padding = "";
       curEl.textContent = "No current event";
+
       if(nxt){ startCountdown(nxt.start.getTime(), "next"); }
-      else { startCountdown(null, "none"); }
+      else    { startCountdown(null, "none"); }
     }
 
     if(nxt){ nxtEl.innerHTML = nxt.name + fmtTime(nxt); }
@@ -582,29 +684,12 @@
   }
 
   function normalizeEvent(x){
-  if(!x) return null;
-
-  // 1) Generic cancel logic (flags / statuses)
-  if(isCancelledEvent(x)) return null;
-
-  // 2) HARD FILTER: ignore the ghost event
-  //    "Junior Free Drop In - High School #1722071"
-  var nmFull = (x.EventName || x.Name || x.Title || "");
-  var nmFullLower = nmFull.toLowerCase();
-  if (
-    nmFull.indexOf("#1722071") >= 0 ||                         // by ID
-    nmFullLower.indexOf("junior free drop in - high school") >= 0 // by name
-  ){
-    return null;
+    if(isCancelledEvent(x)) return null;
+    var nm = (x.EventName || x.Name || x.Title || "Event");
+    var s  = parseTimeAny(x.StartDateTime||x.StartTime||x.Start);
+    var e  = parseTimeAny(x.EndDateTime  ||x.EndTime  ||x.End);
+    return (s && e) ? {kind:"event", name:nm, start:s, end:e, raw:x} : null;
   }
-
-  // 3) Normal normalization
-  var s = parseTimeAny(x.StartDateTime || x.StartTime || x.Start);
-  var e = parseTimeAny(x.EndDateTime   || x.EndTime   || x.End);
-  var nm = nmFull || "Event";
-
-  return (s && e) ? { kind:"event", name:nm, start:s, end:e, raw:x } : null;
-}
 
   function shortName(p){
     var fn = (p.FirstName||"").trim();
@@ -620,7 +705,9 @@
     var name = "";
     if(x.Players && x.Players instanceof Array && x.Players.length){
       var arr = [];
-      for(var i=0;i<x.Players.length;i++){ arr.push(shortName(x.Players[i]||{})); }
+      for(var i=0;i<x.Players.length;i++){
+        arr.push(shortName(x.Players[i]||{}));
+      }
       name = arr.join(", ");
     }
     if(!name && x.ReservationTypeName) name = x.ReservationTypeName;
@@ -632,7 +719,9 @@
 
   function refresh(forceNoToggle){
     var dstr = todayStrNY();
-    if(cacheDate !== dstr){ cacheEv=[]; cacheRes=[]; cacheDate=dstr; toggle=0; }
+    if(cacheDate !== dstr){
+      cacheEv=[]; cacheRes=[]; cacheDate=dstr; toggle=0;
+    }
 
     var urls = buildDayUrls();
 
@@ -768,6 +857,7 @@
     }, msUntilNextMinute);
   }
 
+  // ===== INIT =====
   document.getElementById('cno').textContent = String(COURT_NO);
   tickClock();
   refresh(false);
