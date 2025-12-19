@@ -194,7 +194,8 @@
 <body>
   <!-- COURT BAR -->
   <div class="bar" id="bar">
-    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">1</div></div>
+    <!-- FIXED: show 2 by default (JS also overwrites it) -->
+    <div id="cn" class="sec"><div class="val pulse-blue" id="cno">2</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
@@ -213,10 +214,11 @@
 <script>
 (function(){
   // ======= CONFIG =======
-  var COURT_NO      = 16;   // <<< CHANGE PER COURT
-  var ORG_MEMBER_ID = "12674";
-  var AUTH_B64      = "Basic T3JnXzEyNjc0OjEyNjc0XzE4NWFmZGE3LTdiNGYtNGIwYS04YmEwLWE3OWVhYzc4ODExZA==";
-  var TZ            = "America/New_York";
+  var COURT_NO = 3;
+  var TZ       = "America/New_York";
+
+  // ✅ Cloudflare Worker (no credentials in browser)
+  var PROXY_BASE = "https://courtreserve-proxy.s-jackson.workers.dev/api/day";
 
   var currentLevelLabel = "";
   var currentLevelBg    = "#0c0c0c";
@@ -273,7 +275,7 @@
     return [];
   }
 
-  // ======= SMART COURT FILTER (no Title dependency) =======
+  // ======= SMART COURT FILTER (SAFE) =======
   function containsCourtN(rec, n){
     n = Number(n) || 1;
     if(!rec) return false;
@@ -309,12 +311,27 @@
       return false;
     }
 
+    function keyLooksCourtRelated(k){
+      if(!k) return false;
+      var s = String(k).toLowerCase();
+      return (
+        s.indexOf("court") >= 0 ||
+        s.indexOf("resource") >= 0 ||
+        s.indexOf("facilitycourt") >= 0 ||
+        s.indexOf("courtid") >= 0 ||
+        s.indexOf("court_id") >= 0 ||
+        s.indexOf("resourceid") >= 0 ||
+        s.indexOf("resource_id") >= 0
+      );
+    }
+
     function scan(value, keyHint){
       if(value == null) return false;
       var t = typeof value;
 
       if(t === "number"){
-        return value === n;
+        // only match numeric values when the key is court/resource related
+        return keyLooksCourtRelated(keyHint) && (value === n);
       }
       if(t === "string"){
         return stringHasCourtN(value, n);
@@ -476,21 +493,18 @@
             setPulse("blue"); setBar("blue");
             resetExpiredVisuals();
             if(nxtStart){
-              // if there's a next event, go into next countdown
               cdMode   = "next";
               cdTarget = nxtStart;
               tick();
             } else {
-              // no upcoming event: clear everything so it doesn't stick
               cdMode   = "none";
               cdTarget = null;
               lastGood = null;
-              refresh(true); // force re-eval + render(null,null)
+              refresh(true);
             }
           }, 30000);
 
         } else if (cdMode === "next") {
-          // next just hit zero -> force fresh data so it flips to In Progress quickly
           cdTarget = null;
           cdMode   = "none";
           out.className = "val";
@@ -522,92 +536,34 @@
     var tLow  = t.toLowerCase();
     var tNorm = tLow.replace(/\s+/g,"").replace(/–/g,"-").replace(/—/g,"-");
 
-    var info = {
-      bubbleColor: null,
-      label: "",
-      overlayBg: "#0c0c0c"
-    };
+    var info = { bubbleColor: null, label: "", overlayBg: "#0c0c0c" };
 
-    // 4.5+
-    if (
-      tNorm.indexOf("4.5+") >= 0 ||
-      tNorm.indexOf("4.5-") >= 0 ||
-      tNorm.indexOf("5.0") >= 0
-    ){
-      info.bubbleColor = "#dc2626"; // RED
-      info.label       = "4.5+";
-      info.overlayBg   = "#b91c1c";
-
-    // 4.0–4.49
-    } else if (
-      tNorm.indexOf("4.0-4.4")  >= 0 ||
-      tNorm.indexOf("4.0-4.49") >= 0 ||
-      tNorm.indexOf("4.0-4.5")  >= 0 ||
-      tNorm.indexOf("4.0-4")    >= 0
-    ){
-      info.bubbleColor = "#f97316"; // ORANGE
-      info.label       = "4.0–4.49";
-      info.overlayBg   = "#ea580c";
-
-    // 3.5–3.99
-    } else if (
-      tNorm.indexOf("3.5-3.9")  >= 0 ||
-      tNorm.indexOf("3.5-3.99") >= 0 ||
-      tNorm.indexOf("3.5+")     >= 0
-    ){
-      info.bubbleColor = "#8b5cf6"; // PURPLE
-      info.label       = "3.5–3.99";
-      info.overlayBg   = "#6d28d9";
-
-    // 3.0–3.49
-    } else if (
-      tNorm.indexOf("3.0-3.4")  >= 0 ||
-      tNorm.indexOf("3.0-3.49") >= 0
-    ){
-      info.bubbleColor = "#22c55e"; // GREEN
-      info.label       = "3.0–3.49";
-      info.overlayBg   = "#15803d";
-
-    // 2.0–2.99
-    } else if (
-      tNorm.indexOf("2.0-2.9")  >= 0 ||
-      tNorm.indexOf("2.0-2.99") >= 0
-    ){
-      info.bubbleColor = "#38bdf8"; // LIGHT BLUE
-      info.label       = "2.0–2.99";
-      info.overlayBg   = "#0ea5e9";
-
-    // TEXT FALLBACKS
+    if (tNorm.indexOf("4.5+") >= 0 || tNorm.indexOf("4.5-") >= 0 || tNorm.indexOf("5.0") >= 0){
+      info.bubbleColor = "#cfd829"; info.label = "4.5+"; info.overlayBg = "#cfd829";
+    } else if (tNorm.indexOf("4.0-4.4")>=0 || tNorm.indexOf("4.0-4.49")>=0 || tNorm.indexOf("4.0-4.5")>=0 || tNorm.indexOf("4.0-4")>=0){
+      info.bubbleColor = "#f47855"; info.label = "4.0–4.49"; info.overlayBg = "#f47855";
+    } else if (tNorm.indexOf("3.5-3.9")>=0 || tNorm.indexOf("3.5-3.99")>=0 || tNorm.indexOf("3.5+")>=0){
+      info.bubbleColor = "#ee3c85"; info.label = "3.5–3.99"; info.overlayBg = "#ee3c85";
+    } else if (tNorm.indexOf("3.0-3.4")>=0 || tNorm.indexOf("3.0-3.49")>=0){
+      info.bubbleColor = "#22c55e"; info.label = "3.0–3.49"; info.overlayBg = "#15803d";
+    } else if (tNorm.indexOf("2.0-2.9")>=0 || tNorm.indexOf("2.0-2.99")>=0){
+      info.bubbleColor = "#38bdf8"; info.label = "2.0–2.99"; info.overlayBg = "#0ea5e9";
     } else {
-
       if(tLow.indexOf("advanced") >= 0){
-        info.bubbleColor = "#dc2626";
-        info.label       = "4.5+";
-        info.overlayBg   = "#b91c1c";
-
+        info.bubbleColor = "#cfd829"; info.label = "4.5+"; info.overlayBg = "#cfd829";
       } else if(tLow.indexOf("intermediate+") >= 0){
-        info.bubbleColor = "#8b5cf6";
-        info.label       = "3.5–3.99";
-        info.overlayBg   = "#6d28d9";
-
+        info.bubbleColor = "#ee3c85"; info.label = "3.5–3.99"; info.overlayBg = "#6d28d9";
       } else if(tLow.indexOf("intermediate") >= 0){
-        info.bubbleColor = "#22c55e";
-        info.label       = "3.0–3.49";
-        info.overlayBg   = "#15803d";
-
+        info.bubbleColor = "#48b749"; info.label = "3.0–3.49"; info.overlayBg = "#15803d";
       } else if(tLow.indexOf("beginner") >= 0){
-        info.bubbleColor = "#38bdf8";
-        info.label       = "2.0–2.99";
-        info.overlayBg   = "#0ea5e9";
+        info.bubbleColor = "#38bdf8"; info.label = "2.0–2.99"; info.overlayBg = "#0ea5e9";
       }
     }
     return info;
   }
 
-  // ===== CANCELLED EVENT FILTER =====
   function isCancelledEvent(x){
     if(!x || typeof x !== "object") return false;
-
     if(x.IsCanceled === true || x.IsCancelled === true || x.Cancelled === true) return true;
     if(x.IsActive === false || x.Active === false) return true;
 
@@ -615,7 +571,6 @@
     if(typeof x.Status === "string")              statusStr += " " + x.Status;
     if(typeof x.EventStatus === "string")         statusStr += " " + x.EventStatus;
     if(typeof x.RegistrationStatus === "string")  statusStr += " " + x.RegistrationStatus;
-
     statusStr = statusStr.toLowerCase();
     if(statusStr.indexOf("cancel") >= 0) return true;
 
@@ -666,21 +621,11 @@
     else   { nxtEl.textContent = "No upcoming event"; }
   }
 
-  // ======= DATA =======
+  // ======= DATA (CLOUDFLARE PROXY) =======
   function buildDayUrls(){
-    var d   = todayStrNY();
     var rnd = new Date().getTime();
-    var ev  = "https://api.courtreserve.com/api/v1/eventcalendar/eventlist"
-            + "?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)
-            + "&startDate="+d+"T00:00:00&endDate="+d+"T23:59:59"
-            + "&r="+rnd;
-    var res = "https://api.courtreserve.com/api/v1/reservationreport/listactive"
-            + "?orgMemberId="+encodeURIComponent(ORG_MEMBER_ID)
-            + "&reservationsFromDate="+d+"T00:00:00"
-            + "&reservationsToDate="+d+"T23:59:59"
-            + "&includePlayers=true"
-            + "&r="+rnd;
-    return {ev:ev, res:res};
+    var proxy = PROXY_BASE + "?court=" + COURT_NO + "&r=" + rnd;
+    return { proxy: proxy };
   }
 
   function normalizeEvent(x){
@@ -715,49 +660,17 @@
     return {kind:"res", name:name, start:s, end:e, raw:x};
   }
 
-  var toggle = 0, cacheEv = [], cacheRes = [], cacheDate = "";
+  var cacheEv = [], cacheRes = [];
 
   function refresh(forceNoToggle){
-    var dstr = todayStrNY();
-    if(cacheDate !== dstr){
-      cacheEv=[]; cacheRes=[]; cacheDate=dstr; toggle=0;
-    }
-
     var urls = buildDayUrls();
-
-    if(forceNoToggle){
-      xhrJSON(urls.ev,  {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
-        if(!errE){ cacheEv = pickArray(dataE); }
-        xhrJSON(urls.res, {"Authorization":AUTH_B64}, 8000, function(errR, dataR){
-          if(!errR){ cacheRes = pickArray(dataR); }
-          computeAndRender();
-        });
-      });
-      return;
-    }
-
-    if(toggle === 0){
-      xhrJSON(urls.ev, {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
-        if(!errE){ cacheEv = pickArray(dataE); }
-        xhrJSON(urls.res, {"Authorization":AUTH_B64}, 8000, function(errR, dataR){
-          if(!errR){ cacheRes = pickArray(dataR); }
-          toggle = 1;
-          computeAndRender();
-        });
-      });
-    } else if((toggle % 2) === 1){
-      xhrJSON(urls.ev, {"Authorization":AUTH_B64}, 8000, function(errE, dataE){
-        if(!errE){ cacheEv = pickArray(dataE); }
-        toggle++;
-        computeAndRender();
-      });
-    } else {
-      xhrJSON(urls.res, {"Authorization":AUTH_B64}, 8000, function(errR, dataR){
-        if(!errR){ cacheRes = pickArray(dataR); }
-        toggle++;
-        computeAndRender();
-      });
-    }
+    xhrJSON(urls.proxy, null, 8000, function(err, data){
+      if(!err && data){
+        cacheEv  = pickArray(data.events);
+        cacheRes = pickArray(data.reservations);
+      }
+      computeAndRender();
+    });
   }
 
   function computeAndRender(){
