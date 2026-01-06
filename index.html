@@ -8,12 +8,13 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body {
+    html, body{
       margin:0; padding:0; width:100vw; height:100vh;
       overflow:hidden; background:transparent;
       font-family: Arial, Helvetica, sans-serif;
     }
 
+    /* ===== BAR ===== */
     .bar{
       position:fixed; left:0; right:0; bottom:0; height:72px;
       display:grid; grid-template-columns:1.2fr 2.2fr 1.1fr 2.1fr 1.2fr;
@@ -23,6 +24,10 @@
     }
     .bar.red{
       background:linear-gradient(90deg,#4a0000,#c02020 70%);
+    }
+    /* skill bar uses vars set by JS */
+    .bar.skill{
+      background:linear-gradient(90deg,var(--skillA,#14203a),var(--skillB,#22335d) 70%);
     }
 
     .sec{
@@ -81,14 +86,8 @@
       animation: glowBlue 2.8s ease-in-out infinite;
       pointer-events:none;
     }
-    @keyframes pulseBlue {
-      0%,100%{ border-color:#ffffff; }
-      50%{ border-color:#7fbfff; }
-    }
-    @keyframes glowBlue {
-      0%,100%{ box-shadow:0 0 6px rgba(0,128,255,0.25); }
-      50%{ box-shadow:0 0 14px rgba(0,128,255,0.45); }
-    }
+    @keyframes pulseBlue { 0%,100%{ border-color:#ffffff; } 50%{ border-color:#7fbfff; } }
+    @keyframes glowBlue  { 0%,100%{ box-shadow:0 0 6px rgba(0,128,255,0.25); } 50%{ box-shadow:0 0 14px rgba(0,128,255,0.45); } }
 
     .pulse-red { animation: pulseRed 2.2s ease-in-out infinite; }
     .pulse-red::after{
@@ -98,37 +97,26 @@
       animation: glowRed 2.2s ease-in-out infinite;
       pointer-events:none;
     }
-    @keyframes pulseRed {
-      0%,100%{ border-color:#ffffff; }
-      50%{ border-color:#ff5a5a; }
-    }
-    @keyframes glowRed {
-      0%,100%{ box-shadow:0 0 8px rgba(255,0,0,0.25); }
-      50%{ box-shadow:0 0 22px rgba(255,0,0,0.7); }
-    }
+    @keyframes pulseRed { 0%,100%{ border-color:#ffffff; } 50%{ border-color:#ff5a5a; } }
+    @keyframes glowRed  { 0%,100%{ box-shadow:0 0 8px rgba(255,0,0,0.25); } 50%{ box-shadow:0 0 22px rgba(255,0,0,0.7); } }
+
     .nopulse { animation:none; }
     .nopulse::after{ content:none; }
 
     .expired-msg { font-size:28px; color:#ff4444; font-weight:900; }
     .meta{ font-size:12px; color:#d8d8d8; }
 
-    /* ===== POPUP OVERLAY WITH GLOW (ON-THE-MINUTE) ===== */
+    /* ===== POPUP OVERLAY (ON-THE-MINUTE) ===== */
     #infoOverlay{
-      position:fixed;
-      top:0; left:0; right:0; bottom:0;
+      position:fixed; top:0; left:0; right:0; bottom:0;
       z-index:9999;
       background:rgba(0,0,0,.82);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      opacity:0;
-      pointer-events:none;
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none;
       transition:opacity 800ms ease;
     }
-    #infoOverlay.active{
-      opacity:1;
-      pointer-events:auto;
-    }
+    #infoOverlay.active{ opacity:1; pointer-events:auto; }
+
     .overlayBox{
       background-color:#0c0c0c;
       border-radius:30px;
@@ -161,7 +149,7 @@
       margin:16px 0 16px 0;
       letter-spacing:.12em;
       text-transform:uppercase;
-      color:#000000;
+      color:#000;
     }
     .overlayBody{
       font-size:30px;
@@ -194,7 +182,6 @@
 <body>
   <!-- COURT BAR -->
   <div class="bar" id="bar">
-    <!-- FIXED: show 2 by default (JS also overwrites it) -->
     <div id="cn" class="sec"><div class="val pulse-blue" id="cno">2</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
     <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
@@ -214,14 +201,20 @@
 <script>
 (function(){
   // ======= CONFIG =======
-  var COURT_NO = 16;
-  var TZ       = "America/New_York";
-
-  // ✅ Cloudflare Worker (no credentials in browser)
+  var COURT_NO   = 16;
+  var TZ         = "America/New_York";
   var PROXY_BASE = "https://courtreserve-proxy.s-jackson.workers.dev/api/day";
 
+  // current "skill" info
   var currentLevelLabel = "";
   var currentLevelBg    = "#0c0c0c";
+  var currentIsSkill    = false;
+
+  // countdown state
+  var cdTimer = null, cdMode = "none", cdTarget = null;
+  var nxtStart = null;
+  var lastCurName = "";
+  var lastGood = null;
 
   // ======= UTIL =======
   function pad2(n){ return (n<10?"0":"")+n; }
@@ -233,17 +226,6 @@
       });
     } catch(e){
       return d.getHours()+":"+pad2(d.getMinutes());
-    }
-  }
-
-  function todayStrNY(){
-    try{
-      return new Intl.DateTimeFormat('en-CA',{
-        timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'
-      }).format(new Date());
-    } catch(e){
-      var n=new Date();
-      return n.getFullYear()+"-"+pad2(n.getMonth()+1)+"-"+pad2(n.getDate());
     }
   }
 
@@ -265,12 +247,12 @@
 
   function pickArray(c){
     if(!c){return [];}
-    if(c instanceof Array){return c;}
+    if(Array.isArray(c)) return c;
     if(typeof c==='object'){
-      if(c.Data && c.Data instanceof Array) return c.Data;
-      if(c.data && c.data instanceof Array) return c.data;
-      if(c.Items && c.Items instanceof Array) return c.Items;
-      if(c.Results && c.Results instanceof Array) return c.Results;
+      if(Array.isArray(c.Data)) return c.Data;
+      if(Array.isArray(c.data)) return c.data;
+      if(Array.isArray(c.Items)) return c.Items;
+      if(Array.isArray(c.Results)) return c.Results;
     }
     return [];
   }
@@ -330,7 +312,6 @@
       var t = typeof value;
 
       if(t === "number"){
-        // only match numeric values when the key is court/resource related
         return keyLooksCourtRelated(keyHint) && (value === n);
       }
       if(t === "string"){
@@ -364,7 +345,7 @@
     var el = document.getElementById('clock');
     el.textContent = toLocalNY(new Date());
     var now = new Date();
-    var delay = 1000 - (now.getMilliseconds());
+    var delay = 1000 - now.getMilliseconds();
     if(delay < 250) delay = 250;
     setTimeout(tickClock, delay);
   }
@@ -397,12 +378,7 @@
     }catch(e){ cb(e); }
   }
 
-  // ======= RENDER / STATE =======
-  var cdTimer = null, cdMode = "none", cdTarget = null;
-  var nxtStart = null;
-  var lastCurName = "";
-  var lastGood = null;
-
+  // ======= UI HELPERS =======
   function setPulse(mode){
     var el = document.getElementById('cno');
     el.className = "val";
@@ -411,16 +387,39 @@
     else { el.className += " nopulse"; }
   }
 
-  function setBar(mode){
+  function darkenHex(hex, pct){
+    var h = String(hex||"").replace("#","");
+    if(h.length===3){ h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
+    if(h.length!==6) return hex;
+    var r=parseInt(h.substr(0,2),16), g=parseInt(h.substr(2,2),16), b=parseInt(h.substr(4,2),16);
+    r=Math.max(0, Math.floor(r*(1-pct)));
+    g=Math.max(0, Math.floor(g*(1-pct)));
+    b=Math.max(0, Math.floor(b*(1-pct)));
+    return "#"+("0"+r.toString(16)).slice(-2)+("0"+g.toString(16)).slice(-2)+("0"+b.toString(16)).slice(-2);
+  }
+
+  // mode: "blue" (default), "skill" (skill gradient), "red" (urgent)
+  function setBarMode(mode){
     var bar = document.getElementById('bar');
     var cn  = document.getElementById('cn');
+
     if(mode === "red"){
       bar.className = "bar red";
       cn.className  = "sec alert";
-    } else {
-      bar.className = "bar";
-      cn.className  = "sec";
+      return;
     }
+
+    cn.className = "sec";
+
+    if(mode === "skill"){
+      var base = currentLevelBg || "#22335d";
+      bar.style.setProperty("--skillB", base);
+      bar.style.setProperty("--skillA", darkenHex(base, 0.28));
+      bar.className = "bar skill";
+      return;
+    }
+
+    bar.className = "bar";
   }
 
   function resetExpiredVisuals(){
@@ -431,6 +430,7 @@
     lblEl.textContent = (cdMode === "next") ? "Time Until" : "Time Left";
   }
 
+  // ======= COUNTDOWN =======
   function startCountdown(targetMs, mode){
     cdTarget = targetMs; cdMode = mode||"none";
     if(cdTimer){ clearTimeout(cdTimer); cdTimer = null; }
@@ -444,19 +444,21 @@
         out.textContent = "--";
         lbl.textContent = "Time Left";
         setPulse("blue");
-        setBar("blue");
+        setBarMode("blue");
         cdTimer = setTimeout(tick, 1000);
         return;
       }
 
-      var nowMs = (new Date()).getTime();
+      var nowMs = Date.now();
       var diff  = cdTarget - nowMs;
 
       if(diff > 0){
         if(cdMode === "cur" && diff <= 60000){
-          setPulse("red"); setBar("red");
+          setPulse("red");
+          setBarMode("red"); // urgent overrides
         } else {
-          setPulse("blue"); setBar("blue");
+          setPulse("blue");
+          setBarMode(currentIsSkill ? "skill" : "blue");
         }
 
         if(out.className.indexOf("expired-msg") !== -1){
@@ -466,7 +468,7 @@
         var totalSec = Math.floor(diff/1000);
         var totalMin = Math.floor(diff/60000);
         if(diff <= 60000){
-          out.textContent = (totalSec%60) + "s";
+          out.textContent = (totalSec % 60) + "s";
         } else if(totalMin >= 60){
           out.textContent = Math.floor(totalMin/60) + "h " + (totalMin%60) + "m";
         } else {
@@ -479,8 +481,8 @@
       } else {
         // REACHED ZERO
         if (cdMode === "cur") {
-          // show TIME EXPIRED for ~30 seconds
-          setPulse("red"); setBar("red");
+          setPulse("red");
+          setBarMode("red");
           lbl.textContent = "";
           out.className = "val expired-msg";
           out.textContent = "TIME EXPIRED";
@@ -490,7 +492,8 @@
           else { curEl.innerHTML = "Time expired"; }
 
           setTimeout(function(){
-            setPulse("blue"); setBar("blue");
+            setPulse("blue");
+            setBarMode(currentIsSkill ? "skill" : "blue");
             resetExpiredVisuals();
             if(nxtStart){
               cdMode   = "next";
@@ -510,11 +513,13 @@
           out.className = "val";
           out.textContent = "--";
           lbl.textContent = "Time Left";
-          setPulse("blue"); setBar("blue");
+          setPulse("blue");
+          setBarMode("blue");
           try{ refresh(true); }catch(e){}
 
         } else {
-          setPulse("blue"); setBar("blue");
+          setPulse("blue");
+          setBarMode("blue");
           lbl.textContent = "Time Until";
           out.className = "val";
           out.textContent = "--";
@@ -523,6 +528,7 @@
         }
       }
     }
+
     tick();
   }
 
@@ -530,7 +536,8 @@
     return "<div class='meta'>"+toLocalNY(d.start)+" - "+toLocalNY(d.end)+"</div>";
   }
 
-  // ===== LEVEL COLOR / LABEL FROM TITLE (UPDATED RANGES) =====
+  // ===== LEVEL INFO FROM TITLE =====
+  // Note: bubbleColor kept only as a detector (we are NOT using it for UI)
   function getLevelInfoFromTitle(title){
     var t = (title || "");
     var tLow  = t.toLowerCase();
@@ -577,6 +584,7 @@
     return false;
   }
 
+  // ======= RENDER =======
   function render(cur, nxt){
     var curEl = document.getElementById('curv');
     var nxtEl = document.getElementById('nxtv');
@@ -584,34 +592,37 @@
     if(cur){
       lastCurName = cur.name + fmtTime(cur);
 
+      // clean text (no bubble)
       curEl.className = "val";
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
       curEl.style.padding = "";
-      curEl.style.color = "";
+      curEl.style.color = "#ffffff";
 
       var levelInfo = getLevelInfoFromTitle(cur.name || "");
       currentLevelLabel = levelInfo.label;
       currentLevelBg    = levelInfo.overlayBg;
-
-      if(levelInfo.bubbleColor){
-        curEl.style.backgroundColor = levelInfo.bubbleColor;
-        curEl.style.borderRadius    = "999px";
-        curEl.style.padding         = "3px 10px";
-        curEl.style.color           = "#ffffff";
-      }
+      currentIsSkill    = !!levelInfo.bubbleColor;
 
       curEl.innerHTML = cur.name + fmtTime(cur);
+
+      // set bar immediately (countdown will override to red near end)
+      setBarMode(currentIsSkill ? "skill" : "blue");
+
       startCountdown(cur.end.getTime(), "cur");
     } else {
       currentLevelLabel = "";
       currentLevelBg    = "#0c0c0c";
+      currentIsSkill    = false;
 
       curEl.className = "val";
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
       curEl.style.padding = "";
+      curEl.style.color = "#ffffff";
       curEl.textContent = "No current event";
+
+      setBarMode("blue");
 
       if(nxt){ startCountdown(nxt.start.getTime(), "next"); }
       else    { startCountdown(null, "none"); }
@@ -623,9 +634,8 @@
 
   // ======= DATA (CLOUDFLARE PROXY) =======
   function buildDayUrls(){
-    var rnd = new Date().getTime();
-    var proxy = PROXY_BASE + "?court=" + COURT_NO + "&r=" + rnd;
-    return { proxy: proxy };
+    var rnd = Date.now();
+    return { proxy: PROXY_BASE + "?court=" + COURT_NO + "&r=" + rnd };
   }
 
   function normalizeEvent(x){
@@ -647,8 +657,9 @@
     var s = parseTimeAny(x.StartTime||x.StartDateTime||x.Start);
     var e = parseTimeAny(x.EndTime||x.EndDateTime||x.End);
     if(!s || !e) return null;
+
     var name = "";
-    if(x.Players && x.Players instanceof Array && x.Players.length){
+    if(Array.isArray(x.Players) && x.Players.length){
       var arr = [];
       for(var i=0;i<x.Players.length;i++){
         arr.push(shortName(x.Players[i]||{}));
@@ -657,12 +668,13 @@
     }
     if(!name && x.ReservationTypeName) name = x.ReservationTypeName;
     if(!name) name = "Reserved";
+
     return {kind:"res", name:name, start:s, end:e, raw:x};
   }
 
   var cacheEv = [], cacheRes = [];
 
-  function refresh(forceNoToggle){
+  function refresh(){
     var urls = buildDayUrls();
     xhrJSON(urls.proxy, null, 8000, function(err, data){
       if(!err && data){
@@ -678,13 +690,14 @@
 
     for(i=0;i<cacheEv.length;i++){
       var a = normalizeEvent(cacheEv[i]);
-      if(a){ ev.push(a); }
+      if(a) ev.push(a);
     }
     for(i=0;i<cacheRes.length;i++){
       var b = normalizeResv(cacheRes[i]);
-      if(b){ rs.push(b); }
+      if(b) rs.push(b);
     }
 
+    // filter each kind to this court
     var evC = [], rsC = [];
     for(i=0;i<ev.length;i++){
       if(containsCourtN(ev[i].raw, COURT_NO)) evC.push(ev[i]);
@@ -693,6 +706,7 @@
       if(containsCourtN(rs[i].raw, COURT_NO)) rsC.push(rs[i]);
     }
 
+    // merge (reservations override events if overlap)
     var all = rsC.concat(evC);
     all.sort(function(a,b){ return a.start - b.start; });
 
@@ -719,28 +733,29 @@
 
     nxtStart = nxt ? nxt.start.getTime() : null;
 
-    if(cur || nxt){ lastGood = {cur:cur, nxt:nxt}; }
-    if(cur || nxt){ render(cur, nxt); }
-    else if(lastGood){ render(lastGood.cur, lastGood.nxt); }
-    else { render(null, null); }
+    if(cur || nxt) lastGood = {cur:cur, nxt:nxt};
+
+    if(cur || nxt) render(cur, nxt);
+    else if(lastGood) render(lastGood.cur, lastGood.nxt);
+    else render(null, null);
   }
 
   // ===== POPUP OVERLAY LOOP =====
-  var infoOverlay   = document.getElementById("infoOverlay");
-  var overlayBodyEl = document.getElementById("overlayBody");
-  var overlayBoxEl  = document.getElementById("overlayBox");
-  var overlayLevelEl= document.getElementById("overlayLevel");
+  var infoOverlay    = document.getElementById("infoOverlay");
+  var overlayBodyEl  = document.getElementById("overlayBody");
+  var overlayBoxEl   = document.getElementById("overlayBox");
+  var overlayLevelEl = document.getElementById("overlayLevel");
 
   function applyOverlayLevelStyles(){
     if(!overlayBoxEl || !overlayLevelEl) return;
 
     if(currentLevelLabel){
       overlayLevelEl.style.display = "block";
-      overlayLevelEl.textContent  = currentLevelLabel;
+      overlayLevelEl.textContent   = currentLevelLabel;
       overlayBoxEl.style.backgroundColor = currentLevelBg || "#0c0c0c";
     } else {
       overlayLevelEl.style.display = "none";
-      overlayLevelEl.textContent  = "";
+      overlayLevelEl.textContent   = "";
       overlayBoxEl.style.backgroundColor = "#0c0c0c";
     }
   }
@@ -762,7 +777,7 @@
     if(!infoOverlay) return;
     var now = new Date();
     var msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-    if(msUntilNextMinute < 100){ msUntilNextMinute = 100; }
+    if(msUntilNextMinute < 100) msUntilNextMinute = 100;
 
     setTimeout(function(){
       showInfoOverlay();
@@ -773,7 +788,7 @@
   // ===== INIT =====
   document.getElementById('cno').textContent = String(COURT_NO);
   tickClock();
-  refresh(false);
+  refresh();
   setInterval(refresh, 30000);
   startOverlayMinuteLoop();
 })();
