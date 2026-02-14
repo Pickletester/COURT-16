@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <title>Court 16 — TB1-SAFE (30s fade)</title>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+
+  <!-- Let the Worker handle caching; don't hard-bust caches from the client -->
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     html, body{
       margin:0; padding:0; width:100vw; height:100vh;
@@ -177,14 +177,32 @@
           0 0 90px rgba(80,180,255,.6);
       }
     }
+
+    /* ===== OPTIONAL: error badge (only shown when API errors) ===== */
+    #errBadge{
+      position:fixed;
+      top:10px; left:10px;
+      z-index:10000;
+      background:rgba(140,0,0,.85);
+      color:#fff;
+      padding:8px 10px;
+      border-radius:10px;
+      font:700 14px Arial;
+      display:none;
+      max-width:calc(100vw - 20px);
+      box-shadow:0 6px 16px rgba(0,0,0,.35);
+    }
   </style>
 </head>
+
 <body>
+  <div id="errBadge">API issue — backing off…</div>
+
   <!-- COURT BAR -->
   <div class="bar" id="bar">
     <div id="cn" class="sec"><div class="val pulse-blue" id="cno">2</div></div>
     <div id="cur" class="sec"><div class="label">In Progress</div><div class="val" id="curv">Loading...</div></div>
-    <div id="cd" class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
+    <div id="cd"  class="sec"><div class="label" id="cdlbl">Time Left</div><div class="val" id="cdv">--</div></div>
     <div id="nxt" class="sec"><div class="label">Upcoming</div><div class="val" id="nxtv">Loading next...</div></div>
     <div id="now" class="sec"><div class="label">Current Time</div><div class="val" id="clock">--:--</div></div>
   </div>
@@ -200,10 +218,22 @@
 
 <script>
 (function(){
-  // ======= CONFIG =======
+  // =========================
+  // CONFIG
+  // =========================
   var COURT_NO   = 16;
   var TZ         = "America/New_York";
   var PROXY_BASE = "https://courtreserve-proxy.s-jackson.workers.dev/api/day";
+
+  // OPTIONAL: if you later enable API-key auth on the Worker, set it here.
+  // Leave blank if not using.
+  var API_KEY = ""; // e.g. "my-long-secret"
+
+  // Refresh behavior:
+  var BASE_REFRESH_MS   = 30000;   // normal refresh interval
+  var MAX_BACKOFF_MS    = 300000;  // cap backoff at 5 minutes
+  var refreshDelayMs    = BASE_REFRESH_MS;
+  var refreshTimer      = null;
 
   // current "skill" info
   var currentLevelLabel = "";
@@ -216,7 +246,12 @@
   var lastCurName = "";
   var lastGood = null;
 
-  // ======= UTIL =======
+  // cached data
+  var cacheEv = [], cacheRes = [];
+
+  // =========================
+  // UTIL
+  // =========================
   function pad2(n){ return (n<10?"0":"")+n; }
 
   function toLocalNY(d){
@@ -257,7 +292,9 @@
     return [];
   }
 
-  // ======= SMART COURT FILTER (SAFE) =======
+  // =========================
+  // SMART COURT FILTER (SAFE)
+  // =========================
   function containsCourtN(rec, n){
     n = Number(n) || 1;
     if(!rec) return false;
@@ -340,7 +377,9 @@
     return scan(rec, "");
   }
 
-  // ======= CLOCK =======
+  // =========================
+  // CLOCK
+  // =========================
   function tickClock(){
     var el = document.getElementById('clock');
     el.textContent = toLocalNY(new Date());
@@ -350,12 +389,16 @@
     setTimeout(tickClock, delay);
   }
 
-  // ======= XHR =======
+  // =========================
+  // HTTP
+  // =========================
   function xhrJSON(url, headers, timeoutMs, cb){
     try{
       var x = new XMLHttpRequest();
       x.open("GET", url, true);
       x.timeout = timeoutMs||8000;
+
+      // Default headers
       if(headers){
         for(var k in headers){
           if(headers.hasOwnProperty(k)){
@@ -363,22 +406,35 @@
           }
         }
       }
+
       x.onreadystatechange = function(){
         if(x.readyState === 4){
           if(x.status >= 200 && x.status < 300){
             var data=null;
             try{ data=JSON.parse(x.responseText); }catch(e){ data=null; }
-            cb(null, data);
-          } else { cb(new Error("HTTP "+x.status)); }
+            cb(null, data, x.status);
+          } else {
+            cb(new Error("HTTP "+x.status), null, x.status);
+          }
         }
       };
-      x.ontimeout = function(){ cb(new Error("timeout")); };
-      x.onerror   = function(){ cb(new Error("network")); };
+      x.ontimeout = function(){ cb(new Error("timeout"), null, 0); };
+      x.onerror   = function(){ cb(new Error("network"), null, 0); };
       x.send();
-    }catch(e){ cb(e); }
+    }catch(e){ cb(e, null, 0); }
   }
 
-  // ======= UI HELPERS =======
+  function apiHeaders(){
+    var h = {};
+    if(API_KEY && API_KEY.trim()){
+      h["X-API-Key"] = API_KEY.trim();
+    }
+    return h;
+  }
+
+  // =========================
+  // UI HELPERS
+  // =========================
   function setPulse(mode){
     var el = document.getElementById('cno');
     el.className = "val";
@@ -430,7 +486,20 @@
     lblEl.textContent = (cdMode === "next") ? "Time Until" : "Time Left";
   }
 
-  // ======= COUNTDOWN =======
+  function showErrBadge(show, msg){
+    var el = document.getElementById("errBadge");
+    if(!el) return;
+    if(show){
+      el.textContent = msg || "API issue — backing off…";
+      el.style.display = "block";
+    } else {
+      el.style.display = "none";
+    }
+  }
+
+  // =========================
+  // COUNTDOWN
+  // =========================
   function startCountdown(targetMs, mode){
     cdTarget = targetMs; cdMode = mode||"none";
     if(cdTimer){ clearTimeout(cdTimer); cdTimer = null; }
@@ -537,7 +606,6 @@
   }
 
   // ===== LEVEL INFO FROM TITLE =====
-  // Note: bubbleColor kept only as a detector (we are NOT using it for UI)
   function getLevelInfoFromTitle(title){
     var t = (title || "");
     var tLow  = t.toLowerCase();
@@ -550,7 +618,7 @@
     } else if (tNorm.indexOf("4.0-4.4")>=0 || tNorm.indexOf("4.0-4.49")>=0 || tNorm.indexOf("4.0-4.5")>=0 || tNorm.indexOf("4.0-4")>=0){
       info.bubbleColor = "#f47855"; info.label = "4.0–4.49"; info.overlayBg = "#f47855";
     } else if (tNorm.indexOf("3.5-3.9")>=0 || tNorm.indexOf("3.5-3.99")>=0 || tNorm.indexOf("3.5+")>=0){
-      info.bubbleColor = "#ee3c85"; info.label = "3.5–3.99"; info.overlayBg = "#ee3c85";
+      info.bubbleColor = "#ee3c85"; info.label = "3.5–3.99"; info.overlayBg = "#6d28d9";
     } else if (tNorm.indexOf("3.0-3.4")>=0 || tNorm.indexOf("3.0-3.49")>=0){
       info.bubbleColor = "#22c55e"; info.label = "3.0–3.49"; info.overlayBg = "#15803d";
     } else if (tNorm.indexOf("2.0-2.9")>=0 || tNorm.indexOf("2.0-2.99")>=0){
@@ -584,7 +652,9 @@
     return false;
   }
 
-  // ======= RENDER =======
+  // =========================
+  // RENDER
+  // =========================
   function render(cur, nxt){
     var curEl = document.getElementById('curv');
     var nxtEl = document.getElementById('nxtv');
@@ -592,7 +662,6 @@
     if(cur){
       lastCurName = cur.name + fmtTime(cur);
 
-      // clean text (no bubble)
       curEl.className = "val";
       curEl.style.backgroundColor = "";
       curEl.style.borderRadius = "";
@@ -605,10 +674,7 @@
       currentIsSkill    = !!levelInfo.bubbleColor;
 
       curEl.innerHTML = cur.name + fmtTime(cur);
-
-      // set bar immediately (countdown will override to red near end)
       setBarMode(currentIsSkill ? "skill" : "blue");
-
       startCountdown(cur.end.getTime(), "cur");
     } else {
       currentLevelLabel = "";
@@ -632,10 +698,12 @@
     else   { nxtEl.textContent = "No upcoming event"; }
   }
 
-  // ======= DATA (CLOUDFLARE PROXY) =======
-  function buildDayUrls(){
-    var rnd = Date.now();
-    return { proxy: PROXY_BASE + "?court=" + COURT_NO + "&r=" + rnd };
+  // =========================
+  // DATA
+  // =========================
+  function buildDayUrl(){
+    // IMPORTANT: no client-side cache buster. Worker edge cache + 30s polling is enough.
+    return PROXY_BASE + "?court=" + COURT_NO;
   }
 
   function normalizeEvent(x){
@@ -672,19 +740,6 @@
     return {kind:"res", name:name, start:s, end:e, raw:x};
   }
 
-  var cacheEv = [], cacheRes = [];
-
-  function refresh(){
-    var urls = buildDayUrls();
-    xhrJSON(urls.proxy, null, 8000, function(err, data){
-      if(!err && data){
-        cacheEv  = pickArray(data.events);
-        cacheRes = pickArray(data.reservations);
-      }
-      computeAndRender();
-    });
-  }
-
   function computeAndRender(){
     var ev = [], rs = [], i;
 
@@ -697,7 +752,6 @@
       if(b) rs.push(b);
     }
 
-    // filter each kind to this court
     var evC = [], rsC = [];
     for(i=0;i<ev.length;i++){
       if(containsCourtN(ev[i].raw, COURT_NO)) evC.push(ev[i]);
@@ -706,7 +760,6 @@
       if(containsCourtN(rs[i].raw, COURT_NO)) rsC.push(rs[i]);
     }
 
-    // merge (reservations override events if overlap)
     var all = rsC.concat(evC);
     all.sort(function(a,b){ return a.start - b.start; });
 
@@ -740,7 +793,51 @@
     else render(null, null);
   }
 
-  // ===== POPUP OVERLAY LOOP =====
+  // =========================
+  // REFRESH LOOP (with backoff)
+  // =========================
+  function scheduleNext(){
+    if(refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function(){
+      refresh(false);
+    }, refreshDelayMs);
+  }
+
+  function refresh(forceNow){
+    var url = buildDayUrl();
+    var headers = apiHeaders();
+
+    xhrJSON(url, headers, 8000, function(err, data, status){
+      if(!err && data){
+        // success
+        showErrBadge(false);
+        refreshDelayMs = BASE_REFRESH_MS;
+
+        cacheEv  = pickArray(data.events);
+        cacheRes = pickArray(data.reservations);
+        computeAndRender();
+      } else {
+        // error (429/403/5xx/network)
+        var msg = "API issue — backing off…";
+        if(status === 429) msg = "Rate limited — backing off…";
+        else if(status === 403) msg = "Forbidden — check API key";
+        showErrBadge(true, msg);
+
+        // Exponential backoff
+        refreshDelayMs = Math.min(refreshDelayMs * 2, MAX_BACKOFF_MS);
+
+        // Still render last known good (so screen doesn't go blank)
+        try{ computeAndRender(); }catch(e){}
+      }
+
+      // if forceNow requested, schedule normally after handling
+      scheduleNext();
+    });
+  }
+
+  // =========================
+  // POPUP OVERLAY LOOP
+  // =========================
   var infoOverlay    = document.getElementById("infoOverlay");
   var overlayBodyEl  = document.getElementById("overlayBody");
   var overlayBoxEl   = document.getElementById("overlayBox");
@@ -785,11 +882,17 @@
     }, msUntilNextMinute);
   }
 
-  // ===== INIT =====
+  // =========================
+  // INIT
+  // =========================
   document.getElementById('cno').textContent = String(COURT_NO);
   tickClock();
-  refresh();
-  setInterval(refresh, 30000);
+
+  // Start: fetch immediately, then backoff-capable loop
+  refreshDelayMs = BASE_REFRESH_MS;
+  refresh(true);
+  scheduleNext();
+
   startOverlayMinuteLoop();
 })();
 </script>
