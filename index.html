@@ -96,6 +96,7 @@
     .expired-msg { font-size:28px; color:#ff4444; font-weight:900; }
     .meta { font-size:12px; color:#d8d8d8; }
 
+    /* ── EXISTING EVENT OVERLAY ── */
     #infoOverlay {
       position:fixed; top:0; left:0; right:0; bottom:0;
       z-index:9999; background:rgba(0,0,0,.82);
@@ -141,6 +142,83 @@
       50%    { box-shadow:0 0 30px rgba(0,180,255,.9), 0 0 60px rgba(0,120,255,.7), 0 0 90px rgba(80,180,255,.6); }
     }
 
+    /* ── BIRTHDAY OVERLAY ── */
+    #bdayOverlay {
+      position:fixed; top:0; left:0; right:0; bottom:0;
+      z-index:10000; background:rgba(0,0,0,.88);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none;
+      transition:opacity 600ms ease;
+      overflow:hidden;
+    }
+    #bdayOverlay.active { opacity:1; pointer-events:auto; }
+
+    .bdayBox {
+      background:linear-gradient(135deg,#1a0533,#2d0a5e);
+      border-radius:30px; padding:50px 80px 60px;
+      max-width:75%; text-align:center; color:#fff;
+      position:relative; z-index:2;
+      box-shadow:
+        0 0 20px rgba(255,100,200,.5),
+        0 0 50px rgba(200,50,255,.4),
+        0 0 90px rgba(150,0,255,.3);
+      animation: none;
+    }
+    #bdayOverlay.active .bdayBox {
+      animation: popIn .9s cubic-bezier(.18,.89,.32,1) forwards,
+                 bdayGlow 3s ease-in-out infinite;
+    }
+    @keyframes bdayGlow {
+      0%,100%{ box-shadow:0 0 20px rgba(255,100,200,.5),0 0 50px rgba(200,50,255,.4),0 0 90px rgba(150,0,255,.3); }
+      50%    { box-shadow:0 0 40px rgba(255,150,255,.9),0 0 80px rgba(220,80,255,.7),0 0 120px rgba(180,30,255,.6); }
+    }
+
+    .bdayEmoji { font-size:72px; display:block; margin-bottom:10px; }
+    .bdayTitle {
+      font-size:42px; font-weight:900; letter-spacing:.05em;
+      background:linear-gradient(90deg,#ff9de2,#c084fc,#fbbf24);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text; margin-bottom:16px;
+    }
+    .bdayNames {
+      font-size:34px; font-weight:800; color:#fff;
+      margin-bottom:14px; line-height:1.3;
+    }
+    .bdaySub {
+      font-size:20px; color:rgba(255,255,255,.75);
+      font-weight:600;
+    }
+    .bdayLogo {
+      display:block; margin:20px auto 0;
+      max-width:260px; max-height:70px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,.6))
+              brightness(1.1);
+    }
+
+    /* Balloons */
+    .balloon-container {
+      position:fixed; top:0; left:0; right:0; bottom:0;
+      pointer-events:none; z-index:9999; overflow:hidden;
+    }
+    .balloon {
+      position:absolute; bottom:-120px;
+      width:50px; height:65px; border-radius:50% 50% 50% 50% / 40% 40% 60% 60%;
+      opacity:0; animation: floatUp 6s ease-in forwards;
+    }
+    .balloon::after {
+      content:""; position:absolute;
+      bottom:-18px; left:50%; transform:translateX(-50%);
+      width:1px; height:18px;
+      background:rgba(255,255,255,.5);
+    }
+    @keyframes floatUp {
+      0%   { bottom:-120px; opacity:0; transform:translateX(0) rotate(-4deg); }
+      10%  { opacity:.9; }
+      50%  { transform:translateX(var(--sway,20px)) rotate(4deg); }
+      80%  { opacity:.85; }
+      100% { bottom:110vh; opacity:0; transform:translateX(0) rotate(-4deg); }
+    }
+
     #errBadge {
       position:fixed; top:10px; left:10px; z-index:10000;
       background:rgba(140,0,0,.85); color:#fff;
@@ -161,6 +239,7 @@
 <body>
 
   <div id="errBadge">API issue — backing off…</div>
+
   <div id="debugLog"></div>
 
   <div class="bar" id="bar">
@@ -171,11 +250,24 @@
     <div id="now" class="sec"><div class="label">Current Time</div><div class="val" id="clock">--:--</div></div>
   </div>
 
+  <!-- Existing event overlay (unchanged) -->
   <div id="infoOverlay">
     <div class="overlayBox" id="overlayBox">
       <img src="levelup-logo.png" alt="LevelUp Pickleball" class="overlayLogo">
       <div class="overlayLevel" id="overlayLevel" style="display:none;"></div>
       <div class="overlayBody"  id="overlayBody">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Birthday overlay (new) -->
+  <div id="bdayOverlay">
+    <div class="balloon-container" id="balloonContainer"></div>
+    <div class="bdayBox">
+      <span class="bdayEmoji">🎂</span>
+      <div class="bdayTitle">Happy Birthday!</div>
+      <div class="bdayNames" id="bdayNames">Someone</div>
+      <div class="bdaySub">From everyone at LevelUp Pickleball Club</div>
+      <img src="levelup-logo.png" alt="LevelUp" class="bdayLogo">
     </div>
   </div>
 
@@ -186,16 +278,20 @@
   var COURT_NO   = 16;
   var TZ         = "America/New_York";
   var PROXY_BASE = "https://courtreserve-proxy.s-jackson.workers.dev/api/day";
-  var API_KEY    = "";          // leave blank unless Worker requires a key
+  var API_KEY    = "";
 
-  var BASE_REFRESH_MS = 30000;  // poll every 30 s
-  var MAX_BACKOFF_MS  = 300000; // cap at 5 min on errors
-
-  // Set true to show a live debug panel in the top-right corner
+  var BASE_REFRESH_MS = 30000;
+  var MAX_BACKOFF_MS  = 300000;
   var SHOW_DEBUG = false;
-
-  // Add event name substrings here to always exclude them, e.g. ["WEN Event"]
   var EXCLUDE_EVENT_NAMES = ["Pickleball 101"];
+
+  // ── BIRTHDAY CONFIG ───────────────────────────────────────
+  var BIRTHDAY_NAMES    = [];  // auto-populated from KV via reader Worker
+  var BDAY_READER_URL   = 'https://levelup-birthday-reader-led-screens.s-jackson.workers.dev/';
+  var BDAY_INTERVAL_MS  = 15 * 60 * 1000;  // show popup every 15 minutes
+  var BDAY_DURATION_MS  = 10 * 1000;        // show for 10 seconds
+  var BDAY_END_BUFFER_MS = 60 * 1000;       // don't show within 60s of event ending
+  var BDAY_FETCH_MS     = 15 * 60 * 1000;  // re-fetch names every 15 minutes
   // ─────────────────────────────────────────────────────────
 
   var refreshDelayMs  = BASE_REFRESH_MS;
@@ -234,13 +330,10 @@
     if(typeof t==="number") return new Date(t>1e12?t:t*1000);
     if(typeof t==="string"){
       var s=t.trim(); if(!s) return null;
-      // .NET /Date(ms)/
       var m=s.match(/^\/Date\((-?\d+)(?:[+-]\d{4})?\)\/$/i);
       if(m) return new Date(parseInt(m[1],10));
-      // ISO / RFC
       var d=new Date(s);
       if(!isNaN(d.getTime())) return d;
-      // MM/DD/YYYY HH:MM AM|PM
       var a=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
       if(a){
         var hr=+a[4],mn=+a[5],ap=(a[6]||"").toUpperCase();
@@ -249,7 +342,6 @@
         var d2=new Date(+a[3],+a[1]-1,+a[2],hr,mn,0);
         if(!isNaN(d2.getTime())) return d2;
       }
-      // YYYY-MM-DD HH:MM[:SS]
       var b=s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
       if(b){
         var d3=new Date(+b[1],+b[2]-1,+b[3],+b[4],+b[5],+(b[6]||0));
@@ -273,10 +365,6 @@
   }
 
   // ── COURT FILTER ──────────────────────────────────────────
-  //
-  // Key fix: uses (?!\d) negative lookahead so "Court #1" never
-  // matches inside "Court #10", "Court #12", "Court #16", etc.
-  //
   function containsCourtN(rec, n){
     n = Number(n)||1;
     if(!rec) return false;
@@ -286,16 +374,13 @@
       if(!s) return false;
       s = String(s).toLowerCase();
       if(s.indexOf("court")===-1) return false;
-      // exact match with word-boundary guard
       var exact = new RegExp("courts?\\s*#?\\s*"+n+"(?!\\d)","g");
       if(exact.test(s)) return true;
-      // range: "Courts 1-3"
       var rg=/courts?\s*#?\s*(\d+)\s*[-–]\s*#?\s*(\d+)/g, m;
       while((m=rg.exec(s))!==null){
         var a=+m[1],b=+m[2];
         if(n>=Math.min(a,b)&&n<=Math.max(a,b)) return true;
       }
-      // list: "Court #1, Court #2"
       var lg=/courts?\s*#?\s*(\d+)(?!\d)/g, lm;
       while((lm=lg.exec(s))!==null){
         if(parseInt(lm[1],10)===n) return true;
@@ -582,13 +667,6 @@
   }
 
   // ── COMPUTE & RENDER ──────────────────────────────────────
-  //
-  // Three buckets:
-  //   evC       = events explicitly assigned to Court N
-  //   rsC       = reservations explicitly assigned to Court N
-  //   evFallback= events with Courts:[] (no court set in CourtReserve)
-  //               used ONLY when nothing in evC/rsC covers the slot
-  //
   function computeAndRender(){
     var ev=[],rs=[],i;
     for(i=0;i<cacheEv.length; i++){ var a=normalizeEvent(cacheEv[i]);  if(a) ev.push(a); }
@@ -616,7 +694,6 @@
 
     var now=new Date(), cur=null, nxt=null, it, i2;
 
-    // Find current & next from explicitly-matched items
     for(i2=0;i2<primary.length;i2++){
       it=primary[i2];
       if(now>=it.start&&now<=it.end){
@@ -627,7 +704,6 @@
       if(!nxt&&now<it.start) nxt=it;
     }
 
-    // Fallback: use no-court events only when primary found nothing
     if(!cur){
       for(i2=0;i2<evFallback.length;i2++){
         it=evFallback[i2];
@@ -685,7 +761,7 @@
     });
   }
 
-  // ── OVERLAY ───────────────────────────────────────────────
+  // ── EXISTING EVENT OVERLAY (unchanged) ───────────────────
   var infoOverlay  =document.getElementById("infoOverlay");
   var overlayBodyEl=document.getElementById("overlayBody");
   var overlayBoxEl =document.getElementById("overlayBox");
@@ -704,7 +780,15 @@
     }
   }
 
+  function isInLastMinuteOfEvent(){
+    if(!cdTarget||cdMode!=="cur") return false;
+    var diff=cdTarget-Date.now();
+    return diff>0 && diff<=BDAY_END_BUFFER_MS;
+  }
+
   function showOverlay(){
+    // Don't show event overlay in last 60s of event (your new rule)
+    if(isInLastMinuteOfEvent()) return;
     if(!infoOverlay) return;
     var curEl=document.getElementById("curv");
     if(curEl&&overlayBodyEl) overlayBodyEl.innerHTML=curEl.innerHTML||curEl.textContent||"";
@@ -721,12 +805,110 @@
     setTimeout(function(){ showOverlay(); setInterval(showOverlay,60000); }, ms);
   }
 
+  // ── BIRTHDAY OVERLAY ──────────────────────────────────────
+  var bdayOverlay = document.getElementById("bdayOverlay");
+  var bdayNamesEl = document.getElementById("bdayNames");
+  var bdayActive  = false;
+
+  var BALLOON_COLORS = [
+    "#ff6b9d","#ff9de2","#c084fc","#818cf8","#34d399",
+    "#fbbf24","#f87171","#60a5fa","#a78bfa","#fb923c"
+  ];
+
+  function spawnBalloons(){
+    var container = document.getElementById("balloonContainer");
+    if(!container) return;
+    container.innerHTML = "";
+    var count = 18;
+    for(var i=0; i<count; i++){
+      (function(idx){
+        setTimeout(function(){
+          var b = document.createElement("div");
+          b.className = "balloon";
+          var left = 5 + Math.random()*90;
+          var color = BALLOON_COLORS[Math.floor(Math.random()*BALLOON_COLORS.length)];
+          var sway = (Math.random()>0.5?1:-1)*(15+Math.random()*40)+"px";
+          var dur = (4.5+Math.random()*3).toFixed(1)+"s";
+          var delay = (Math.random()*2).toFixed(2)+"s";
+          b.style.left = left+"%";
+          b.style.background = color;
+          b.style.setProperty("--sway", sway);
+          b.style.animationDuration = dur;
+          b.style.animationDelay = delay;
+          container.appendChild(b);
+        }, idx * 120);
+      })(i);
+    }
+  }
+
+  function showBirthdayOverlay(){
+    if(!bdayOverlay || !BIRTHDAY_NAMES || BIRTHDAY_NAMES.length===0) return;
+
+    // Don't show if event overlay is active
+    if(infoOverlay && infoOverlay.classList.contains("active")) return;
+
+    // Don't show in last 60s of a current event
+    if(isInLastMinuteOfEvent()) return;
+
+    // Don't show if already showing
+    if(bdayActive) return;
+
+    // Format names nicely
+    var names = BIRTHDAY_NAMES;
+    var nameStr = "";
+    if(names.length===1) nameStr = names[0];
+    else if(names.length===2) nameStr = names[0]+" & "+names[1];
+    else nameStr = names.slice(0,-1).join(", ")+" & "+names[names.length-1];
+
+    if(bdayNamesEl) bdayNamesEl.textContent = nameStr;
+
+    spawnBalloons();
+    bdayActive = true;
+    bdayOverlay.classList.add("active");
+
+    setTimeout(function(){
+      bdayOverlay.classList.remove("active");
+      setTimeout(function(){ bdayActive = false; }, 700);
+    }, BDAY_DURATION_MS);
+  }
+
+  function fetchBirthdayNames(cb){
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', BDAY_READER_URL, true);
+    xhr.timeout = 5000;
+    xhr.onreadystatechange = function(){
+      if(xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300){
+        try{
+          var data = JSON.parse(xhr.responseText);
+          BIRTHDAY_NAMES = Array.isArray(data.names) ? data.names : [];
+        }catch(e){ BIRTHDAY_NAMES = []; }
+        if(cb) cb();
+      }
+    };
+    xhr.ontimeout = xhr.onerror = function(){ BIRTHDAY_NAMES = []; if(cb) cb(); };
+    xhr.send();
+  }
+
+  function startBirthdayLoop(){
+    // Fetch names immediately on load, then re-fetch every 15 minutes
+    fetchBirthdayNames(function(){
+      // First popup 30 seconds after load
+      setTimeout(function(){
+        showBirthdayOverlay();
+        setInterval(showBirthdayOverlay, BDAY_INTERVAL_MS);
+      }, 30000);
+    });
+    // Keep names fresh throughout the day
+    setInterval(fetchBirthdayNames, BDAY_FETCH_MS);
+  }
+
   // ── INIT ──────────────────────────────────────────────────
   document.getElementById("cno").textContent=String(COURT_NO);
   tickClock();
   refresh();
   scheduleNext();
   startOverlayLoop();
+  startBirthdayLoop();
 
 })();
 </script>
