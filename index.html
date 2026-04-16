@@ -890,16 +890,26 @@
   }
 
   function startBirthdayLoop(){
-    // Fetch names immediately on load, then re-fetch every 15 minutes
-    fetchBirthdayNames(function(){
-      // First popup 30 seconds after load
-      setTimeout(function(){
-        showBirthdayOverlay();
-        setInterval(showBirthdayOverlay, BDAY_INTERVAL_MS);
-      }, 30000);
-    });
-    // Keep names fresh throughout the day
+    // Fetch names immediately on load
+    fetchBirthdayNames();
+    // Keep names fresh every 15 minutes
     setInterval(fetchBirthdayNames, BDAY_FETCH_MS);
+
+    // Sync popup to clock — fires at :00, :15, :30, :45 of every hour
+    // Same pattern as the event overlay so all screens pop simultaneously
+    var now = new Date();
+    var minInHour = now.getMinutes();
+    var secInMin  = now.getSeconds();
+    var totalSec  = minInHour * 60 + secInMin;
+    var intervalSec = 15 * 60; // 900 seconds
+    var secsUntilNext = intervalSec - (totalSec % intervalSec);
+    var msUntilNext = secsUntilNext * 1000 - now.getMilliseconds();
+    if(msUntilNext < 500) msUntilNext += intervalSec * 1000; // avoid firing immediately
+
+    setTimeout(function(){
+      showBirthdayOverlay();
+      setInterval(showBirthdayOverlay, BDAY_INTERVAL_MS);
+    }, msUntilNext);
   }
 
   // ── INIT ──────────────────────────────────────────────────
