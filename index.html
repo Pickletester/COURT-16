@@ -787,8 +787,8 @@
   }
 
   function showOverlay(){
-    // Don't show event overlay in last 60s of event (your new rule)
     if(isInLastMinuteOfEvent()) return;
+    if(bdayActive) return;
     if(!infoOverlay) return;
     var curEl=document.getElementById("curv");
     if(curEl&&overlayBodyEl) overlayBodyEl.innerHTML=curEl.innerHTML||curEl.textContent||"";
@@ -894,18 +894,12 @@
     fetchBirthdayNames();
     // Keep names fresh every 15 minutes
     setInterval(fetchBirthdayNames, BDAY_FETCH_MS);
-
     // Sync popup to clock — fires at :00, :15, :30, :45 of every hour
-    // Same pattern as the event overlay so all screens pop simultaneously
     var now = new Date();
-    var minInHour = now.getMinutes();
-    var secInMin  = now.getSeconds();
-    var totalSec  = minInHour * 60 + secInMin;
-    var intervalSec = 15 * 60; // 900 seconds
-    var secsUntilNext = intervalSec - (totalSec % intervalSec);
-    var msUntilNext = secsUntilNext * 1000 - now.getMilliseconds();
-    if(msUntilNext < 500) msUntilNext += intervalSec * 1000; // avoid firing immediately
-
+    var totalSec = now.getMinutes()*60 + now.getSeconds();
+    var secsUntilNext = 900 - (totalSec % 900);
+    var msUntilNext = secsUntilNext*1000 - now.getMilliseconds();
+    if(msUntilNext < 500) msUntilNext += 900000;
     setTimeout(function(){
       showBirthdayOverlay();
       setInterval(showBirthdayOverlay, BDAY_INTERVAL_MS);
