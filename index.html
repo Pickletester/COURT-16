@@ -802,7 +802,7 @@
     var now=new Date();
     var ms=(60-now.getSeconds())*1000-now.getMilliseconds();
     if(ms<100) ms=100;
-    setTimeout(function(){ showOverlay(); setInterval(showOverlay,60000); }, ms);
+    setTimeout(function(){ showOverlay(); setInterval(showOverlay,60000); }, ms + 2000);
   }
 
   // ── BIRTHDAY OVERLAY ──────────────────────────────────────
