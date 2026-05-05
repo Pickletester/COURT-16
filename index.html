@@ -17,7 +17,7 @@
       --navy-deep: #050818;
       --red: #ff4444;
       --red-glow: rgba(255,68,68,0.55);
-      --bar-bg: linear-gradient(90deg, #08111f 0%, #0f1a35 50%, #08111f 100%);
+      --bar-bg: linear-gradient(90deg, #0d1a3a 0%, #1a2a5e 50%, #0d1a3a 100%);
       --bar-skill-a: #14203a;
       --bar-skill-b: #22335d;
     }
@@ -38,7 +38,6 @@
       box-sizing:border-box;
       background: var(--bar-bg);
       border-top: 2px solid var(--green);
-      box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
       transition: background 500ms ease, border-color 500ms ease;
     }
     .bar.red {
@@ -52,6 +51,75 @@
         var(--bar-skill-a) 100%);
     }
 
+    /* ── EXPIRING MODE ── full bar takeover for last 60s ── */
+    .bar.expiring {
+      grid-template-columns: 1.1fr 4.5fr 1.5fr;
+      background: linear-gradient(
+        90deg,
+        #2a0000 0%,
+        #6b0a0a 25%,
+        #c02020 50%,
+        #6b0a0a 75%,
+        #2a0000 100%
+      );
+      background-size: 200% 100%;
+      animation: expireSlide 2.5s ease-in-out infinite;
+      border-top-color: var(--red);
+    }
+    @keyframes expireSlide {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    .bar.expiring #cur,
+    .bar.expiring #nxt,
+    .bar.expiring #now { display: none; }
+
+    .bar.expiring #expireMsg {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 4px 12px;
+      box-sizing: border-box;
+      overflow: hidden;
+      border-left: 2px solid rgba(255,255,255,0.5);
+      animation: expirePulse 1s ease-in-out infinite;
+    }
+    @keyframes expirePulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.78; }
+    }
+
+    #expireMsg { display: none; }
+
+    .expire-line1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 38px;
+      letter-spacing: 0.12em;
+      color: #fff;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .expire-line2 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      color: rgba(255,255,255,0.85);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .bar.expiring #cd {
+      border-left: 2px solid rgba(255,255,255,0.5);
+    }
+    .bar.expiring #cd .label { color: rgba(255,255,255,0.85); }
+    .bar.expiring #cd .val {
+      font-size: 44px;
+      color: #fff;
+    }
+
     .sec {
       position:relative;
       display:flex; flex-direction:column;
@@ -59,7 +127,7 @@
       padding: 4px 12px;
       box-sizing:border-box;
       overflow:hidden;
-      border-left: 1px solid rgba(255,255,255,0.18);
+      border-left: 2px solid rgba(255,255,255,0.5);
     }
     .sec:first-of-type { border-left: none; }
 
@@ -104,12 +172,12 @@
       color:#fff;
     }
     #cur .val, #nxt .val {
-      font-size:16px;
+      font-size:18px;
       font-weight:700;
       white-space:normal;
       overflow-wrap:anywhere;
       word-break:break-word;
-      max-height:38px;
+      max-height:42px;
       overflow:hidden;
       line-height:1.1;
     }
@@ -123,7 +191,6 @@
     #cd.urgent .val {
       font-size:38px;
       color: #ffdddd;
-      text-shadow: 0 0 12px rgba(255,68,68,0.6);
     }
     #now .val {
       font-family: 'Bebas Neue', sans-serif;
@@ -134,40 +201,46 @@
     }
     .meta {
       font-family: 'Barlow Condensed', sans-serif;
-      font-weight:600;
-      font-size:12px;
-      color: rgba(255,255,255,0.7);
-      letter-spacing: 0.04em;
+      font-weight:700;
+      font-size:14px;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.06em;
       margin-top: 2px;
       line-height: 1.2;
     }
 
     /* Court number — focal point */
     #cn {
-      padding: 0 10px;
+      padding: 0;
+      background: var(--green);
     }
     #cn .val {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 64px;
+      font-size: 60px;
       font-weight: 400;
       line-height: 1;
-      padding: 0 10px;
+      padding: 0;
       letter-spacing: .02em;
-      color: #fff;
-      text-shadow: 0 0 18px rgba(60,196,64,0.4);
-      transition: text-shadow 400ms ease, color 300ms ease;
+      color: var(--navy-dark);
+      transition: color 300ms ease, background 400ms ease;
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
+      height: 100%;
     }
+    .bar.skill #cn { background: #000; }
+    .bar.skill #cn .val { color: #fff; }
+    .bar.expiring #cn { background: transparent; }
+    .bar.expiring #cn .val { color: #fff; }
+    .bar.red #cn { background: transparent; }
+    .bar.red #cn .val { color: #fff; }
     #cn.alert .val {
-      color: #ffe5e5;
-      text-shadow: 0 0 18px var(--red-glow);
       animation: courtPulseRed 2s ease-in-out infinite;
     }
     @keyframes courtPulseRed {
-      0%, 100% { color: #ffe5e5; text-shadow: 0 0 14px rgba(255,68,68,0.4); }
-      50%      { color: #fff; text-shadow: 0 0 24px var(--red-glow); }
+      0%, 100% { color: #ffe5e5; }
+      50%      { color: #fff; }
     }
 
     /* Skill-level pill on Upcoming */
@@ -185,7 +258,6 @@
       font-size:30px !important;
       color: var(--red);
       letter-spacing:.05em;
-      text-shadow: 0 0 14px var(--red-glow);
     }
 
     /* ── EVENT OVERLAY ── */
@@ -484,6 +556,10 @@
       <div class="label"><span class="live-dot"></span>In Progress</div>
       <div class="val" id="curv">Loading...</div>
     </div>
+    <div id="expireMsg">
+      <div class="expire-line1">Wrap It Up</div>
+      <div class="expire-line2">Court Time Ending Soon</div>
+    </div>
     <div id="cd"  class="sec">
       <div class="label" id="cdlbl">Time Left</div>
       <div class="val" id="cdv">--</div>
@@ -721,6 +797,12 @@
 
   function setBarMode(mode){
     var bar=document.getElementById("bar"), cn=document.getElementById("cn"), cd=document.getElementById("cd");
+    if(mode==="expiring"){
+      bar.className="bar expiring";
+      cn.className="sec alert";
+      cd.className="sec urgent";
+      return;
+    }
     if(mode==="red"){
       bar.className="bar red";
       cn.className="sec alert";
@@ -776,7 +858,7 @@
       var diff=cdTarget-Date.now();
 
       if(diff>0){
-        if(cdMode==="cur"&&diff<=60000){ setBarMode("red"); }
+        if(cdMode==="cur"&&diff<=60000){ setBarMode("expiring"); }
         else { setBarMode(currentIsSkill?"skill":"normal"); }
 
         if(out.className.indexOf("expired-msg")!==-1) out.className="val";
@@ -887,15 +969,15 @@
       else    startCountdown(null,"none");
     }
 
+    var nxtDimColor = "rgba(255, 255, 255, 0.6)";
     if(nxt){
       var nxtLv = getLevelInfo(nxt.name||"");
       var pill = nxtLv.bubbleColor ?
         "<span class='skill-pill' style='background:"+nxtLv.bubbleColor+";color:"+nxtLv.bubbleColor+"'></span>" : "";
-      if(nxtEl.style.color) nxtEl.style.color="";
+      if(nxtEl.style.color !== nxtDimColor) nxtEl.style.color=nxtDimColor;
       swapContent(nxtEl, pill+nxt.name+fmtTime(nxt));
     } else {
-      var dimColor2 = "rgba(255, 255, 255, 0.55)";
-      if(nxtEl.style.color !== dimColor2) nxtEl.style.color=dimColor2;
+      if(nxtEl.style.color !== nxtDimColor) nxtEl.style.color=nxtDimColor;
       swapContent(nxtEl, "No upcoming event");
     }
   }
