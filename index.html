@@ -33,7 +33,7 @@
       position:fixed; left:0; right:0; bottom:0;
       height:72px;
       display:grid;
-      grid-template-columns: 88px 1.05fr 2.6fr 1fr 2.4fr 1.05fr;
+      grid-template-columns: 1.1fr 2.5fr 1fr 2.3fr 1fr;
       gap:1px;
       box-sizing:border-box;
       background: var(--bar-bg);
@@ -52,28 +52,14 @@
         var(--bar-skill-a) 100%);
     }
 
-    /* Brand watermark cell */
-    #brand {
-      display:flex; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.45);
-      padding: 8px 10px;
-      box-sizing: border-box;
-    }
-    #brand img {
-      max-height: 48px;
-      max-width: 100%;
-      width: auto;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
-    }
-
     .sec {
       position:relative;
       display:flex; flex-direction:column;
       justify-content:center; align-items:center;
-      padding: 8px 12px;
+      padding: 4px 12px;
       box-sizing:border-box;
       overflow:hidden;
-      border-left: 1px solid rgba(255,255,255,0.04);
+      border-left: 1px solid rgba(255,255,255,0.18);
     }
     .sec:first-of-type { border-left: none; }
 
@@ -81,10 +67,10 @@
       font-family: 'Barlow Condensed', sans-serif;
       font-weight:700;
       text-transform:uppercase;
-      font-size:10px;
-      letter-spacing:.18em;
-      color: rgba(255,255,255,0.45);
-      margin-bottom:4px;
+      font-size:12px;
+      letter-spacing:.16em;
+      color: rgba(255,255,255,0.55);
+      margin-bottom:2px;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -92,9 +78,10 @@
       display:flex;
       align-items:center;
       gap: 6px;
+      line-height: 1.2;
     }
-    #cur .label { color: rgba(108,255,108,0.8); }
-    #nxt .label { color: rgba(255,229,107,0.85); }
+    #cur .label { color: rgba(108,255,108,0.9); }
+    #nxt .label { color: rgba(255,229,107,0.95); }
 
     /* Live dot for in-progress */
     .live-dot {
@@ -115,20 +102,20 @@
       text-align:center;
       line-height:1.1;
       color:#fff;
-      transition: opacity 220ms ease;
     }
     #cur .val, #nxt .val {
-      font-size:15px;
-      font-weight:600;
+      font-size:16px;
+      font-weight:700;
       white-space:normal;
       overflow-wrap:anywhere;
       word-break:break-word;
-      max-height:42px;
+      max-height:38px;
       overflow:hidden;
+      line-height:1.1;
     }
     #cd .val {
       font-family: 'Bebas Neue', sans-serif;
-      font-size:32px;
+      font-size:34px;
       letter-spacing:.02em;
       white-space:nowrap;
       transition: font-size 300ms ease, color 300ms ease;
@@ -140,40 +127,38 @@
     }
     #now .val {
       font-family: 'Bebas Neue', sans-serif;
-      font-size:26px;
+      font-size:36px;
       letter-spacing:.04em;
       white-space:nowrap;
       color: rgba(255,255,255,0.92);
     }
     .meta {
       font-family: 'Barlow Condensed', sans-serif;
-      font-weight:500;
-      font-size:11px;
-      color: rgba(255,255,255,0.55);
+      font-weight:600;
+      font-size:12px;
+      color: rgba(255,255,255,0.7);
       letter-spacing: 0.04em;
       margin-top: 2px;
+      line-height: 1.2;
     }
 
-    /* Court number — focal point but more refined */
+    /* Court number — focal point */
     #cn {
-      padding: 6px 10px;
-    }
-    #cn .label {
-      font-size: 9px;
-      letter-spacing: .22em;
-      margin-bottom: 2px;
-      color: rgba(60,196,64,0.7);
+      padding: 0 10px;
     }
     #cn .val {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 46px;
+      font-size: 64px;
       font-weight: 400;
       line-height: 1;
       padding: 0 10px;
       letter-spacing: .02em;
       color: #fff;
-      text-shadow: 0 0 18px rgba(60,196,64,0.35);
+      text-shadow: 0 0 18px rgba(60,196,64,0.4);
       transition: text-shadow 400ms ease, color 300ms ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #cn.alert .val {
       color: #ffe5e5;
@@ -202,9 +187,6 @@
       letter-spacing:.05em;
       text-shadow: 0 0 14px var(--red-glow);
     }
-
-    /* Section content fade for smoother transitions */
-    .fade-out { opacity: 0 !important; }
 
     /* ── EVENT OVERLAY ── */
     #infoOverlay {
@@ -437,11 +419,7 @@
   <div id="debugLog"></div>
 
   <div class="bar" id="bar">
-    <div id="brand">
-      <img src="levelup-logo.png" alt="LevelUp">
-    </div>
     <div id="cn"  class="sec">
-      <div class="label">Court</div>
       <div class="val" id="cno">1</div>
     </div>
     <div id="cur" class="sec">
@@ -715,15 +693,11 @@
     else      el.style.display="none";
   }
 
-  // Smooth content swap with fade
+  // Direct content update — no animation (matches original behavior)
   function swapContent(el, newHTML){
     if(!el) return;
     if(el.innerHTML === newHTML) return;
-    el.classList.add('fade-out');
-    setTimeout(function(){
-      el.innerHTML = newHTML;
-      el.classList.remove('fade-out');
-    }, 180);
+    el.innerHTML = newHTML;
   }
 
   // ── COUNTDOWN ────────────────────────────────────────────
@@ -841,13 +815,14 @@
       currentLevelBg=lv.overlayBg;
       currentLevelBubble=lv.bubbleColor;
       currentIsSkill=!!lv.bubbleColor;
-      curEl.style.color="#ffffff";
+      if(curEl.style.color !== "rgb(255, 255, 255)") curEl.style.color="#ffffff";
       swapContent(curEl, cur.name+fmtTime(cur));
       setBarMode(currentIsSkill?"skill":"normal");
       startCountdown(cur.end.getTime(),"cur");
     } else {
       currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false;
-      curEl.style.color="rgba(255,255,255,0.55)";
+      var dimColor = "rgba(255, 255, 255, 0.55)";
+      if(curEl.style.color !== dimColor) curEl.style.color=dimColor;
       swapContent(curEl, "No current event");
       setBarMode("normal");
       if(nxt) startCountdown(nxt.start.getTime(),"next");
@@ -858,9 +833,11 @@
       var nxtLv = getLevelInfo(nxt.name||"");
       var pill = nxtLv.bubbleColor ?
         "<span class='skill-pill' style='background:"+nxtLv.bubbleColor+";color:"+nxtLv.bubbleColor+"'></span>" : "";
+      if(nxtEl.style.color) nxtEl.style.color="";
       swapContent(nxtEl, pill+nxt.name+fmtTime(nxt));
     } else {
-      nxtEl.style.color="rgba(255,255,255,0.55)";
+      var dimColor2 = "rgba(255, 255, 255, 0.55)";
+      if(nxtEl.style.color !== dimColor2) nxtEl.style.color=dimColor2;
       swapContent(nxtEl, "No upcoming event");
     }
   }
