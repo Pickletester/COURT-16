@@ -411,12 +411,70 @@
       overflow-y: auto;
       display:none;
     }
+    #testPanel {
+      position:fixed; top:10px; left:10px; z-index:10001;
+      background: rgba(0,0,0,0.92);
+      border: 1px solid rgba(60,196,64,0.4);
+      padding: 12px;
+      border-radius: 8px;
+      display:none;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      font-family: 'Barlow Condensed', sans-serif;
+    }
+    #testPanel.open { display: flex; }
+    #testPanel .test-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #testPanel button {
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font: 600 12px 'Barlow Condensed', sans-serif;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-align: left;
+    }
+    #testPanel button:hover { background: rgba(60,196,64,0.2); border-color: var(--green); }
+    #testPanel button.reset { background: rgba(255,68,68,0.15); border-color: rgba(255,68,68,0.4); margin-top: 4px; }
+    #testPanel button.reset:hover { background: rgba(255,68,68,0.3); }
+    #testPanel .hint {
+      font-size: 9px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 4px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
 
   <div id="errBadge">API issue — backing off…</div>
   <div id="debugLog"></div>
+
+  <div id="testPanel">
+    <div class="test-title">Skill Test Mode</div>
+    <button data-test="2.0–2.99 Beginner">Beginner (2.0–2.99)</button>
+    <button data-test="3.0–3.49 Intermediate">Intermediate (3.0–3.49)</button>
+    <button data-test="3.5–3.99 Intermediate+">Intermediate+ (3.5–3.99)</button>
+    <button data-test="4.0–4.49 Advanced Open Play">Advanced (4.0–4.49)</button>
+    <button data-test="4.5+ Open Play">Pro (4.5+)</button>
+    <button data-test="__overlay__">Show Event Overlay</button>
+    <button data-test="__bday__">Show Birthday</button>
+    <button data-test="__urgent__">Show Time Expiring</button>
+    <button class="reset" data-test="__reset__">Resume Live Data</button>
+    <div class="hint">Press T to toggle · ESC to close</div>
+  </div>
 
   <div class="bar" id="bar">
     <div id="cn"  class="sec">
@@ -1102,6 +1160,87 @@
       setInterval(showBirthdayOverlay, BDAY_INTERVAL_MS);
     }, msUntilNext);
   }
+
+  // ── TEST PANEL ────────────────────────────────────────────
+  var testActive = false;
+  var testPanel = document.getElementById("testPanel");
+
+  function fakeNow(skillName){
+    testActive = true;
+    // Pause real refreshes while testing
+    if(refreshTimer){ clearTimeout(refreshTimer); refreshTimer = null; }
+    var now = new Date();
+    var fakeStart = new Date(now.getTime() - 30*60*1000); // started 30 min ago
+    var fakeEnd   = new Date(now.getTime() + 45*60*1000); // ends in 45 min
+    var fakeNxt = {
+      kind:"event",
+      name:"Open Play",
+      start:new Date(fakeEnd.getTime() + 15*60*1000),
+      end:  new Date(fakeEnd.getTime() + 90*60*1000),
+      raw:{}
+    };
+    var fakeCur = {
+      kind:"event",
+      name: skillName,
+      start: fakeStart,
+      end:   fakeEnd,
+      raw:{}
+    };
+    render(fakeCur, fakeNxt);
+  }
+
+  function fakeUrgent(){
+    testActive = true;
+    if(refreshTimer){ clearTimeout(refreshTimer); refreshTimer = null; }
+    var now = new Date();
+    var fakeCur = {
+      kind:"event",
+      name:"3.0–3.49 Intermediate",
+      start:new Date(now.getTime() - 60*60*1000),
+      end:  new Date(now.getTime() + 30*1000), // ends in 30 seconds — triggers red mode
+      raw:{}
+    };
+    var fakeNxt = {
+      kind:"event",
+      name:"Advanced Drills",
+      start:new Date(now.getTime() + 5*60*1000),
+      end:  new Date(now.getTime() + 65*60*1000),
+      raw:{}
+    };
+    render(fakeCur, fakeNxt);
+  }
+
+  function exitTestMode(){
+    testActive = false;
+    refresh(); // immediately fetch real data
+  }
+
+  if(testPanel){
+    testPanel.addEventListener("click", function(e){
+      var t = e.target;
+      if(t.tagName !== "BUTTON") return;
+      var v = t.getAttribute("data-test");
+      if(v === "__overlay__"){ showOverlay(); return; }
+      if(v === "__bday__"){
+        if(!BIRTHDAY_NAMES.length) BIRTHDAY_NAMES = ["Test Member"];
+        showBirthdayOverlay();
+        return;
+      }
+      if(v === "__urgent__"){ fakeUrgent(); return; }
+      if(v === "__reset__"){ exitTestMode(); return; }
+      fakeNow(v);
+    });
+  }
+
+  document.addEventListener("keydown", function(e){
+    if(e.key === "t" || e.key === "T"){
+      if(testPanel) testPanel.classList.toggle("open");
+    }
+    if(e.key === "Escape"){
+      if(testPanel) testPanel.classList.remove("open");
+      if(testActive) exitTestMode();
+    }
+  });
 
   // ── INIT ────────────────────────────────────────────
   document.getElementById("cno").textContent=String(COURT_NO);
