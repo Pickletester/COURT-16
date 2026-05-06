@@ -233,6 +233,21 @@
     }
     .bar.skill #cn { background: #000; }
     .bar.skill #cn .val { color: #fff; }
+
+    /* Advanced/Pro use yellow-green background — needs BLACK text for readability */
+    .bar.skill.skill-light #cur .val,
+    .bar.skill.skill-light #nxt .val,
+    .bar.skill.skill-light #cd .val,
+    .bar.skill.skill-light #now .val,
+    .bar.skill.skill-light .meta {
+      color: #000 !important;
+    }
+    .bar.skill.skill-light #cd .label,
+    .bar.skill.skill-light #now .label { color: rgba(0,0,0,0.7) !important; }
+    .bar.skill.skill-light .live-dot {
+      background: #000 !important;
+      box-shadow: 0 0 8px rgba(0,0,0,0.5) !important;
+    }
     .bar.expiring #cn { background: transparent; }
     .bar.expiring #cn .val { color: #fff; }
     .bar.red #cn { background: transparent; }
@@ -257,10 +272,14 @@
 
     .expired-msg {
       font-family: 'Bebas Neue', sans-serif !important;
-      font-size:30px !important;
+      font-size:22px !important;
       color: var(--red);
       letter-spacing:.05em;
+      line-height: 1 !important;
+      white-space: normal !important;
+      text-align: center;
     }
+    .expired-msg span { display: block; }
 
     /* ── EVENT OVERLAY ── */
     #infoOverlay {
@@ -817,10 +836,26 @@
       var base=currentLevelBg||"#22335d";
       bar.style.setProperty("--bar-skill-b",base);
       bar.style.setProperty("--bar-skill-a",darkenHex(base,0.4));
-      bar.className="bar skill";
+      // Detect if the skill background is "light" (needs black text for contrast)
+      // Advanced (#cfd829 yellow-green) and 4.0-4.49 (#f47855 orange) are the light ones
+      var isLight = isLightColor(base);
+      bar.className = "bar skill" + (isLight ? " skill-light" : "");
       return;
     }
     bar.className="bar";
+  }
+
+  // Returns true if the color is light enough to need dark text
+  function isLightColor(hex){
+    var h = String(hex||"").replace("#","");
+    if(h.length===3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if(h.length!==6) return false;
+    var r = parseInt(h.substr(0,2),16);
+    var g = parseInt(h.substr(2,2),16);
+    var b = parseInt(h.substr(4,2),16);
+    // Standard luminance formula
+    var luminance = (0.299*r + 0.587*g + 0.114*b);
+    return luminance > 140;
   }
 
   function resetExpiredVisuals(){
@@ -877,7 +912,7 @@
         if(cdMode==="cur"){
           setBarMode("red");
           lbl.textContent="";
-          out.className="val expired-msg"; out.textContent="TIME EXPIRED";
+          out.className="val expired-msg"; out.innerHTML="<span>TIME</span><span>EXPIRED</span>";
           var curEl=document.getElementById("curv");
           curEl.innerHTML=lastCurName?"Time expired — "+lastCurName:"Time expired";
           setTimeout(function(){
@@ -1121,10 +1156,24 @@
     if(currentLevelLabel){
       overlayLvlEl.style.display="inline-block";
       overlayLvlEl.textContent=currentLevelLabel;
-      overlayLvlEl.style.backgroundColor=currentLevelBg||"#0c0c0c";
+      // Make the whole overlay box the skill color
+      overlayBoxEl.style.background = currentLevelBg || "#0c0c0c";
+      // Detect if light skill color — use dark text; otherwise keep white
+      var useDark = isLightColor(currentLevelBg || "#0c0c0c");
+      var textColor = useDark ? "#000" : "#fff";
+      overlayLvlEl.style.color = textColor;
+      overlayLvlEl.style.backgroundColor = useDark ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.15)";
+      overlayBoxEl.style.color = textColor;
+      overlayBodyEl.style.color = textColor;
+      overlayBoxEl.style.border = useDark ? "1px solid rgba(0,0,0,0.2)" : "1px solid rgba(255,255,255,0.2)";
     } else {
       overlayLvlEl.style.display="none";
       overlayLvlEl.textContent="";
+      overlayLvlEl.style.color="";
+      overlayBoxEl.style.background = "";
+      overlayBoxEl.style.color = "";
+      overlayBodyEl.style.color = "";
+      overlayBoxEl.style.border = "";
     }
   }
 
@@ -1168,7 +1217,7 @@
     var container = document.getElementById("balloonContainer");
     if(!container) return;
     container.innerHTML = "";
-    var count = 10;
+    var count = 24;
     for(var i=0; i<count; i++){
       (function(idx){
         setTimeout(function(){
@@ -1177,15 +1226,15 @@
           var left = 8 + Math.random()*84;
           var color = BALLOON_COLORS[Math.floor(Math.random()*BALLOON_COLORS.length)];
           var sway = (Math.random()>0.5?1:-1)*(15+Math.random()*35)+"px";
-          var dur = (4.8+Math.random()*2.4).toFixed(1)+"s";
-          var delay = (Math.random()*1.5).toFixed(2)+"s";
+          var dur = (3+Math.random()*1.5).toFixed(1)+"s";
+          var delay = (Math.random()*0.5).toFixed(2)+"s";
           b.style.left = left+"%";
           b.style.background = color;
           b.style.setProperty("--sway", sway);
           b.style.animationDuration = dur;
           b.style.animationDelay = delay;
           container.appendChild(b);
-        }, idx * 150);
+        }, idx * 40);
       })(i);
     }
   }
