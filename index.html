@@ -172,21 +172,46 @@
       color:#fff;
     }
     #cur .val, #nxt .val {
-      font-size:18px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size:20px;
       font-weight:700;
+      letter-spacing: 0.02em;
       white-space:normal;
       overflow-wrap:anywhere;
       word-break:break-word;
-      max-height:42px;
+      max-height:44px;
       overflow:hidden;
-      line-height:1.1;
+      line-height:1.05;
     }
     #cd .val {
       font-family: 'Bebas Neue', sans-serif;
       font-size:30px;
       letter-spacing:.02em;
       white-space:nowrap;
-      transition: font-size 300ms ease, color 300ms ease;
+      transition: font-size 300ms ease, color 300ms ease, text-shadow 300ms ease;
+    }
+    /* Bigger when showing just minutes (sub-60 min) */
+    #cd.minutes-only .val {
+      font-size:42px;
+    }
+    /* 10 minutes or less — yellow warning */
+    #cd.warn .val {
+      color: #ffd83a;
+    }
+    /* 5 minutes or less — glowing red */
+    #cd.danger .val {
+      color: #ff5a5a;
+      animation: dangerGlow 1.2s ease-in-out infinite;
+    }
+    @keyframes dangerGlow {
+      0%, 100% {
+        color: #ff5a5a;
+        text-shadow: 0 0 6px rgba(255,0,0,0.4), 0 0 12px rgba(255,40,40,0.3);
+      }
+      50% {
+        color: #ff8888;
+        text-shadow: 0 0 10px rgba(255,30,30,0.7), 0 0 20px rgba(255,60,60,0.5);
+      }
     }
     #cd.urgent .val {
       font-size:34px;
@@ -234,7 +259,7 @@
     .bar.skill #cn { background: #000; }
     .bar.skill #cn .val { color: #fff; }
 
-    /* Advanced/Pro use yellow-green background — needs BLACK text for readability */
+    /* Light skill colors (Advanced/Pro) need BLACK text for readability */
     .bar.skill.skill-light #cur .val,
     .bar.skill.skill-light #nxt .val,
     .bar.skill.skill-light #cd .val,
@@ -247,6 +272,17 @@
     .bar.skill.skill-light .live-dot {
       background: #000 !important;
       box-shadow: 0 0 8px rgba(0,0,0,0.5) !important;
+    }
+    /* On light skill backgrounds, warn/danger countdown stays black with subtle pulse */
+    .bar.skill.skill-light #cd.warn .val { color: #000 !important; }
+    .bar.skill.skill-light #cd.danger .val {
+      color: #000 !important;
+      animation: dangerGlowDark 1.2s ease-in-out infinite !important;
+      text-shadow: none !important;
+    }
+    @keyframes dangerGlowDark {
+      0%, 100% { color: #000; }
+      50%      { color: #4a0000; }
     }
     .bar.expiring #cn { background: transparent; }
     .bar.expiring #cn .val { color: #fff; }
@@ -285,7 +321,6 @@
     #infoOverlay {
       position:fixed; inset:0;
       z-index:9999; background:rgba(5,8,24,.85);
-      display:flex; align-items:center; justify-content:center;
       opacity:0; pointer-events:none;
       transition:opacity 700ms ease;
       backdrop-filter: blur(4px);
@@ -294,13 +329,15 @@
     #infoOverlay.active { opacity:1; pointer-events:auto; }
 
     .overlayBox {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(.82);
       background: linear-gradient(160deg, #0a1030 0%, #050818 100%);
       border: 1px solid rgba(60,196,64,0.25);
       border-radius:24px;
       padding:48px 80px 56px;
       max-width:80%;
       text-align:center; color:#fff;
-      transform:scale(.82);
       box-shadow:
         0 0 0 1px rgba(255,255,255,0.05) inset,
         0 12px 40px rgba(0,0,0,0.6),
@@ -343,9 +380,9 @@
     }
 
     @keyframes popIn {
-      0%  { transform:scale(.7); opacity:0; }
-      80% { transform:scale(1.04); }
-      100%{ transform:scale(1); opacity:1; }
+      0%  { transform: translate(-50%, -50%) scale(.7); opacity:0; }
+      80% { transform: translate(-50%, -50%) scale(1.04); }
+      100%{ transform: translate(-50%, -50%) scale(1); opacity:1; }
     }
     @keyframes glowPulse {
       0%, 100% {
@@ -368,7 +405,6 @@
     #bdayOverlay {
       position:fixed; inset:0;
       z-index:10000; background: rgba(5,8,24,0.88);
-      display:flex; align-items:center; justify-content:center;
       opacity:0; pointer-events:none;
       transition: opacity 600ms ease;
       backdrop-filter: blur(4px);
@@ -378,6 +414,9 @@
     #bdayOverlay.active { opacity:1; pointer-events:auto; }
 
     .bdayBox {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
       background: linear-gradient(160deg, #0a1030 0%, #1a0533 60%, #050818 100%);
       border: 1px solid rgba(192,132,252,0.3);
       border-radius:24px;
@@ -385,7 +424,7 @@
       max-width:75%;
       text-align:center;
       color:#fff;
-      position:relative; z-index:2;
+      z-index:2;
       box-shadow:
         0 0 0 1px rgba(255,255,255,0.05) inset,
         0 12px 40px rgba(0,0,0,0.6),
@@ -564,6 +603,8 @@
     <button data-test="4.5+ Open Play">Pro (4.5+)</button>
     <button data-test="__overlay__">Show Event Overlay</button>
     <button data-test="__bday__">Show Birthday</button>
+    <button data-test="__warn__">Show 10m Warning (Yellow)</button>
+    <button data-test="__danger__">Show 5m Danger (Red Glow)</button>
     <button data-test="__urgent__">Show Time Expiring</button>
     <button class="reset" data-test="__reset__">Resume Live Data</button>
     <div class="hint">Press T to toggle · ESC to close</div>
@@ -818,6 +859,13 @@
 
   function setBarMode(mode){
     var bar=document.getElementById("bar"), cn=document.getElementById("cn"), cd=document.getElementById("cd");
+    // Preserve sub-state classes on the countdown (minutes-only / warn / danger) across mode changes
+    var preserve = [];
+    if(cd){
+      if(cd.classList.contains("minutes-only")) preserve.push("minutes-only");
+      if(cd.classList.contains("warn"))         preserve.push("warn");
+      if(cd.classList.contains("danger"))       preserve.push("danger");
+    }
     if(mode==="expiring"){
       bar.className="bar expiring";
       cn.className="sec alert";
@@ -831,13 +879,11 @@
       return;
     }
     cn.className="sec";
-    cd.className="sec";
+    cd.className = "sec" + (preserve.length ? " " + preserve.join(" ") : "");
     if(mode==="skill"){
       var base=currentLevelBg||"#22335d";
       bar.style.setProperty("--bar-skill-b",base);
       bar.style.setProperty("--bar-skill-a",darkenHex(base,0.4));
-      // Detect if the skill background is "light" (needs black text for contrast)
-      // Advanced (#cfd829 yellow-green) and 4.0-4.49 (#f47855 orange) are the light ones
       var isLight = isLightColor(base);
       bar.className = "bar skill" + (isLight ? " skill-light" : "");
       return;
@@ -853,7 +899,6 @@
     var r = parseInt(h.substr(0,2),16);
     var g = parseInt(h.substr(2,2),16);
     var b = parseInt(h.substr(4,2),16);
-    // Standard luminance formula
     var luminance = (0.299*r + 0.587*g + 0.114*b);
     return luminance > 140;
   }
@@ -905,10 +950,42 @@
         else if(totalMin>=60) out.textContent=Math.floor(totalMin/60)+"h "+(totalMin%60)+"m";
         else                  out.textContent=totalMin+"m";
 
+        // Apply size + color states based on remaining time (only during current event)
+        var cdEl = document.getElementById("cd");
+        if(cdEl && cdMode==="cur" && diff > 60000){
+          // Reset the urgent class (which only applies <60s); manage our own
+          cdEl.classList.remove("urgent");
+          // Big font when minutes-only (sub 60 minutes)
+          if(totalMin < 60) cdEl.classList.add("minutes-only");
+          else              cdEl.classList.remove("minutes-only");
+          // Yellow at 10 minutes or less
+          if(totalMin <= 10 && totalMin > 5) {
+            cdEl.classList.add("warn");
+            cdEl.classList.remove("danger");
+          } else if(totalMin <= 5) {
+            cdEl.classList.add("danger");
+            cdEl.classList.remove("warn");
+          } else {
+            cdEl.classList.remove("warn");
+            cdEl.classList.remove("danger");
+          }
+        } else if(cdEl && cdMode!=="cur"){
+          // Not the current event countdown — clear state classes
+          cdEl.classList.remove("minutes-only");
+          cdEl.classList.remove("warn");
+          cdEl.classList.remove("danger");
+        }
+
         lbl.textContent=(cdMode==="cur")?"Time Left":"Time Until";
         cdTimer=setTimeout(tick,1000);
 
       } else {
+        var cdElExpire = document.getElementById("cd");
+        if(cdElExpire){
+          cdElExpire.classList.remove("minutes-only");
+          cdElExpire.classList.remove("warn");
+          cdElExpire.classList.remove("danger");
+        }
         if(cdMode==="cur"){
           setBarMode("red");
           lbl.textContent="";
@@ -1187,6 +1264,10 @@
     if(isInLastMinuteOfEvent()) return;
     if(bdayActive) return;
     if(!infoOverlay) return;
+    // Skip if this minute is a birthday-popup minute (every 15 min: :00, :15, :30, :45)
+    // — prevents overlap with birthday overlay
+    var mNow = new Date().getMinutes();
+    if(mNow % 15 === 0) return;
     var curEl=document.getElementById("curv");
     if(curEl&&overlayBodyEl) overlayBodyEl.innerHTML=curEl.innerHTML||curEl.textContent||"";
     applyOverlayStyles();
@@ -1217,7 +1298,7 @@
     var container = document.getElementById("balloonContainer");
     if(!container) return;
     container.innerHTML = "";
-    var count = 24;
+    var count = 10;
     for(var i=0; i<count; i++){
       (function(idx){
         setTimeout(function(){
@@ -1226,15 +1307,15 @@
           var left = 8 + Math.random()*84;
           var color = BALLOON_COLORS[Math.floor(Math.random()*BALLOON_COLORS.length)];
           var sway = (Math.random()>0.5?1:-1)*(15+Math.random()*35)+"px";
-          var dur = (3+Math.random()*1.5).toFixed(1)+"s";
-          var delay = (Math.random()*0.5).toFixed(2)+"s";
+          var dur = (4.8+Math.random()*2.4).toFixed(1)+"s";
+          var delay = (Math.random()*1.5).toFixed(2)+"s";
           b.style.left = left+"%";
           b.style.background = color;
           b.style.setProperty("--sway", sway);
           b.style.animationDuration = dur;
           b.style.animationDelay = delay;
           container.appendChild(b);
-        }, idx * 40);
+        }, idx * 150);
       })(i);
     }
   }
@@ -1343,6 +1424,50 @@
     render(fakeCur, fakeNxt);
   }
 
+  // 10 minutes left — triggers yellow warn state
+  function fakeWarn(){
+    testActive = true;
+    if(refreshTimer){ clearTimeout(refreshTimer); refreshTimer = null; }
+    var now = new Date();
+    var fakeCur = {
+      kind:"event",
+      name:"3.0–3.49 Intermediate",
+      start:new Date(now.getTime() - 60*60*1000),
+      end:  new Date(now.getTime() + 9.5*60*1000), // 9.5 min left = yellow
+      raw:{}
+    };
+    var fakeNxt = {
+      kind:"event",
+      name:"Advanced Drills",
+      start:new Date(now.getTime() + 15*60*1000),
+      end:  new Date(now.getTime() + 75*60*1000),
+      raw:{}
+    };
+    render(fakeCur, fakeNxt);
+  }
+
+  // 5 minutes left — triggers red glowing danger state
+  function fakeDanger(){
+    testActive = true;
+    if(refreshTimer){ clearTimeout(refreshTimer); refreshTimer = null; }
+    var now = new Date();
+    var fakeCur = {
+      kind:"event",
+      name:"3.0–3.49 Intermediate",
+      start:new Date(now.getTime() - 60*60*1000),
+      end:  new Date(now.getTime() + 4.5*60*1000), // 4.5 min left = red glow
+      raw:{}
+    };
+    var fakeNxt = {
+      kind:"event",
+      name:"Advanced Drills",
+      start:new Date(now.getTime() + 10*60*1000),
+      end:  new Date(now.getTime() + 70*60*1000),
+      raw:{}
+    };
+    render(fakeCur, fakeNxt);
+  }
+
   function exitTestMode(){
     testActive = false;
     refresh(); // immediately fetch real data
@@ -1359,6 +1484,8 @@
         showBirthdayOverlay();
         return;
       }
+      if(v === "__warn__"){ fakeWarn(); return; }
+      if(v === "__danger__"){ fakeDanger(); return; }
       if(v === "__urgent__"){ fakeUrgent(); return; }
       if(v === "__reset__"){ exitTestMode(); return; }
       fakeNow(v);
