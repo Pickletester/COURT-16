@@ -306,6 +306,24 @@
       box-shadow: 0 0 6px currentColor;
     }
 
+
+    .book-front-desk-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 34px;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: #fff;
+      text-transform: uppercase;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .bar.red #cur .label,
+    .bar.red #nxt .label,
+    .bar.red #now .label,
+    .bar.red #cd .label {
+      color: rgba(255,255,255,0.82);
+    }
+
     .expired-msg {
       font-family: 'Bebas Neue', sans-serif !important;
       font-size:22px !important;
@@ -319,8 +337,9 @@
 
     /* ── EVENT OVERLAY ── */
     #infoOverlay {
-      position:fixed; inset:0;
+      position:fixed; top:0; left:0; right:0; bottom:0;
       z-index:9999; background:rgba(5,8,24,.85);
+      display:flex; align-items:center; justify-content:center;
       opacity:0; pointer-events:none;
       transition:opacity 700ms ease;
       backdrop-filter: blur(4px);
@@ -329,9 +348,7 @@
     #infoOverlay.active { opacity:1; pointer-events:auto; }
 
     .overlayBox {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%) scale(.82);
+      transform:scale(.82);
       background: linear-gradient(160deg, #0a1030 0%, #050818 100%);
       border: 1px solid rgba(60,196,64,0.25);
       border-radius:24px;
@@ -380,9 +397,9 @@
     }
 
     @keyframes popIn {
-      0%  { transform: translate(-50%, -50%) scale(.7); opacity:0; }
-      80% { transform: translate(-50%, -50%) scale(1.04); }
-      100%{ transform: translate(-50%, -50%) scale(1); opacity:1; }
+      0%  { transform:scale(.7); opacity:0; }
+      80% { transform:scale(1.04); }
+      100%{ transform:scale(1); opacity:1; }
     }
     @keyframes glowPulse {
       0%, 100% {
@@ -403,8 +420,9 @@
 
     /* ── BIRTHDAY OVERLAY ── */
     #bdayOverlay {
-      position:fixed; inset:0;
+      position:fixed; top:0; left:0; right:0; bottom:0;
       z-index:10000; background: rgba(5,8,24,0.88);
+      display:flex; align-items:center; justify-content:center;
       opacity:0; pointer-events:none;
       transition: opacity 600ms ease;
       backdrop-filter: blur(4px);
@@ -414,9 +432,6 @@
     #bdayOverlay.active { opacity:1; pointer-events:auto; }
 
     .bdayBox {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
       background: linear-gradient(160deg, #0a1030 0%, #1a0533 60%, #050818 100%);
       border: 1px solid rgba(192,132,252,0.3);
       border-radius:24px;
@@ -543,6 +558,8 @@
       overflow-y: auto;
       display:none;
     }
+
+
     #testPanel {
       position:fixed; top:10px; left:10px; z-index:10001;
       background: rgba(0,0,0,0.92);
@@ -594,6 +611,7 @@
   <div id="errBadge">API issue — backing off…</div>
   <div id="debugLog"></div>
 
+
   <div id="testPanel">
     <div class="test-title">Skill Test Mode</div>
     <button data-test="2.0–2.99 Beginner">Beginner (2.0–2.99)</button>
@@ -606,6 +624,7 @@
     <button data-test="__warn__">Show 10m Warning (Yellow)</button>
     <button data-test="__danger__">Show 5m Danger (Red Glow)</button>
     <button data-test="__urgent__">Show Time Expiring</button>
+    <button data-test="__book__">Show Book at Front Desk Red Bar</button>
     <button class="reset" data-test="__reset__">Resume Live Data</button>
     <div class="hint">Press T to toggle · ESC to close</div>
   </div>
@@ -922,6 +941,32 @@
     el.innerHTML = newHTML;
   }
 
+
+  function setBookAtFrontDesk(){
+    if(cdTimer){ clearTimeout(cdTimer); cdTimer=null; }
+    cdMode="book"; cdTarget=null;
+    currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false;
+
+    var curEl=document.getElementById("curv");
+    var nxtEl=document.getElementById("nxtv");
+    var out=document.getElementById("cdv");
+    var lbl=document.getElementById("cdlbl");
+    var cdEl=document.getElementById("cd");
+
+    if(cdEl){ cdEl.className="sec urgent"; }
+    if(curEl){
+      curEl.style.color="#ffffff";
+      swapContent(curEl,"<span class='book-front-desk-text'>Book at Front desk</span>");
+    }
+    if(nxtEl){
+      nxtEl.style.color="rgba(255,255,255,0.85)";
+      swapContent(nxtEl,"No upcoming event");
+    }
+    if(lbl) lbl.textContent="Available";
+    if(out){ out.className="val"; out.textContent="OPEN"; }
+    setBarMode("red");
+  }
+
   // ── COUNTDOWN ────────────────────────────────────────────
   function startCountdown(targetMs, mode){
     cdTarget=targetMs; cdMode=mode||"none";
@@ -931,6 +976,10 @@
       var out=document.getElementById("cdv"), lbl=document.getElementById("cdlbl");
 
       if(!cdTarget){
+        if(cdMode==="book"){
+          setBookAtFrontDesk();
+          return;
+        }
         out.className="val"; out.textContent="--";
         lbl.textContent="Time Left";
         setBarMode(currentIsSkill?"skill":"normal");
@@ -987,6 +1036,12 @@
           cdElExpire.classList.remove("danger");
         }
         if(cdMode==="cur"){
+          if(!nxtStart){
+            lastGood=null;
+            setBookAtFrontDesk();
+            try{ refresh(true); }catch(e){}
+            return;
+          }
           setBarMode("red");
           lbl.textContent="";
           out.className="val expired-msg"; out.innerHTML="<span>TIME</span><span>EXPIRED</span>";
@@ -995,8 +1050,7 @@
           setTimeout(function(){
             setBarMode(currentIsSkill?"skill":"normal");
             resetExpiredVisuals();
-            if(nxtStart){ cdMode="next"; cdTarget=nxtStart; tick(); }
-            else { cdMode="none"; cdTarget=null; lastGood=null; refresh(true); }
+            cdMode="next"; cdTarget=nxtStart; tick();
           }, 30000);
 
         } else if(cdMode==="next"){
@@ -1080,7 +1134,7 @@
       swapContent(curEl, "No current event");
       setBarMode("normal");
       if(nxt) startCountdown(nxt.start.getTime(),"next");
-      else    startCountdown(null,"none");
+      else    setBookAtFrontDesk();
     }
 
     var nxtDimColor = "rgba(255, 255, 255, 0.6)";
@@ -1182,7 +1236,6 @@
     if(cur||nxt) lastGood={cur:cur,nxt:nxt};
 
     if(cur||nxt)    render(cur,nxt);
-    else if(lastGood) render(lastGood.cur,lastGood.nxt);
     else              render(null,null);
 
     dbg("cur="+(cur?cur.name:"none")+" nxt="+(nxt?nxt.name:"none"));
@@ -1424,6 +1477,13 @@
     render(fakeCur, fakeNxt);
   }
 
+
+  function fakeBookAtFrontDesk(){
+    testActive = true;
+    if(refreshTimer){ clearTimeout(refreshTimer); refreshTimer = null; }
+    setBookAtFrontDesk();
+  }
+
   // 10 minutes left — triggers yellow warn state
   function fakeWarn(){
     testActive = true;
@@ -1487,10 +1547,12 @@
       if(v === "__warn__"){ fakeWarn(); return; }
       if(v === "__danger__"){ fakeDanger(); return; }
       if(v === "__urgent__"){ fakeUrgent(); return; }
+      if(v === "__book__"){ fakeBookAtFrontDesk(); return; }
       if(v === "__reset__"){ exitTestMode(); return; }
       fakeNow(v);
     });
   }
+
 
   document.addEventListener("keydown", function(e){
     if(e.key === "t" || e.key === "T"){
