@@ -164,6 +164,20 @@
       50%      { opacity: 0.4; transform:scale(0.85); }
     }
 
+    /* "FLEX" tag shown in the In Progress / Upcoming label for Flex drop-ins */
+    .flex-tag {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: #fff;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.45);
+      border-radius: 3px;
+      padding: 1px 5px;
+      line-height: 1;
+    }
+
     .val {
       font-family: 'Barlow', sans-serif;
       font-weight:700;
@@ -255,9 +269,62 @@
       justify-content: center;
       width: 100%;
       height: 100%;
+      position: relative;
+      z-index: 1;
     }
     .bar.skill #cn { background: #000; }
     .bar.skill #cn .val { color: #fff; }
+
+    /* ── FLEX DROP-IN ── diagonal stripe texture.
+       Two layers, both gated on .bar.flex:
+       1) a full-bar pattern behind every section (the main "score bug" body)
+       2) a bolder pattern on the court-number block itself
+       Both sit BEHIND the text/number, so the skill-level color code and
+       all readouts stay fully legible. */
+
+    /* 1) Full-bar pattern — behind all section content */
+    .bar.flex::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.10) 0,
+        rgba(255,255,255,0.10) 9px,
+        rgba(255,255,255,0) 9px,
+        rgba(255,255,255,0) 20px
+      );
+    }
+    /* Light skill colors (Advanced/Pro) — dark stripes so they stay visible */
+    .bar.flex.skill-light::before {
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(0,0,0,0.12) 0,
+        rgba(0,0,0,0.12) 9px,
+        rgba(0,0,0,0) 9px,
+        rgba(0,0,0,0) 20px
+      );
+    }
+    /* Keep every section's content above the full-bar pattern */
+    .bar.flex .sec { z-index: 1; }
+
+    /* 2) Court-number block — bolder stripes (block is always solid green/black) */
+    .bar.flex #cn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.26) 0,
+        rgba(255,255,255,0.26) 9px,
+        rgba(255,255,255,0) 9px,
+        rgba(255,255,255,0) 20px
+      );
+    }
 
     /* Light skill colors (Advanced/Pro) need BLACK text for readability */
     .bar.skill.skill-light #cur .val,
@@ -597,6 +664,8 @@
     #testPanel button:hover { background: rgba(60,196,64,0.2); border-color: var(--green); }
     #testPanel button.reset { background: rgba(255,68,68,0.15); border-color: rgba(255,68,68,0.4); margin-top: 4px; }
     #testPanel button.reset:hover { background: rgba(255,68,68,0.3); }
+    #testPanel button.flex { background: rgba(96,165,250,0.15); border-color: rgba(96,165,250,0.45); }
+    #testPanel button.flex:hover { background: rgba(96,165,250,0.3); }
     #testPanel .hint {
       font-size: 9px;
       color: rgba(255,255,255,0.4);
@@ -619,6 +688,8 @@
     <button data-test="3.5–3.99 Intermediate+">Intermediate+ (3.5–3.99)</button>
     <button data-test="4.0–4.49 Advanced Open Play">Advanced (4.0–4.49)</button>
     <button data-test="4.5+ Open Play">Pro (4.5+)</button>
+    <button class="flex" data-test="Flex Drop In">Flex Drop-In (no skill)</button>
+    <button class="flex" data-test="3.5–3.99 Flex Drop In">Flex + Skill (3.5)</button>
     <button data-test="__overlay__">Show Event Overlay</button>
     <button data-test="__bday__">Show Birthday</button>
     <button data-test="__warn__">Show 10m Warning (Yellow)</button>
@@ -634,7 +705,7 @@
       <div class="val" id="cno">1</div>
     </div>
     <div id="cur" class="sec">
-      <div class="label"><span class="live-dot"></span>In Progress</div>
+      <div class="label" id="curlbl"><span class="live-dot"></span>In Progress</div>
       <div class="val" id="curv">Loading...</div>
     </div>
     <div id="expireMsg">
@@ -646,7 +717,7 @@
       <div class="val" id="cdv">--</div>
     </div>
     <div id="nxt" class="sec">
-      <div class="label">Upcoming</div>
+      <div class="label" id="nxtlbl">Upcoming</div>
       <div class="val" id="nxtv">Loading next...</div>
     </div>
     <div id="now" class="sec">
@@ -690,6 +761,10 @@
   var SHOW_DEBUG = false;
   var EXCLUDE_EVENT_NAMES = ["Pickleball 101"];
 
+  // Any event whose name contains one of these (case-insensitive) is treated
+  // as a Flex drop-in and gets the diagonal stripe texture on the court block.
+  var FLEX_KEYWORDS = ["flex"];
+
   var BIRTHDAY_NAMES    = [];
   var BDAY_READER_URL   = 'https://levelup-birthday-reader-led-screens.s-jackson.workers.dev/';
   var BDAY_INTERVAL_MS  = 15 * 60 * 1000;
@@ -700,6 +775,7 @@
   var refreshDelayMs  = BASE_REFRESH_MS;
   var refreshTimer    = null;
   var currentLevelLabel = "", currentLevelBg = "#0c0c0c", currentLevelBubble = null, currentIsSkill = false;
+  var currentIsFlex = false;
   var cdTimer = null, cdMode = "none", cdTarget = null;
   var nxtStart = null, lastCurName = "", lastGood = null;
   var cacheEv = [], cacheRes = [];
@@ -830,6 +906,15 @@
     return false;
   }
 
+  // True when the event name marks it as a Flex drop-in
+  function isFlexDropIn(name){
+    if(!name) return false;
+    var nl=String(name).toLowerCase();
+    for(var i=0;i<FLEX_KEYWORDS.length;i++)
+      if(nl.indexOf(FLEX_KEYWORDS[i].toLowerCase())>=0) return true;
+    return false;
+  }
+
   // ── CLOCK ────────────────────────────────────────────
   function tickClock(){
     document.getElementById("clock").textContent = toLocalNY(new Date());
@@ -885,6 +970,9 @@
       if(cd.classList.contains("warn"))         preserve.push("warn");
       if(cd.classList.contains("danger"))       preserve.push("danger");
     }
+    // Flex stripes only apply in the calm states (normal / skill), not the
+    // red / expiring takeovers which repaint the whole bar.
+    var flexCls = currentIsFlex ? " flex" : "";
     if(mode==="expiring"){
       bar.className="bar expiring";
       cn.className="sec alert";
@@ -904,10 +992,10 @@
       bar.style.setProperty("--bar-skill-b",base);
       bar.style.setProperty("--bar-skill-a",darkenHex(base,0.4));
       var isLight = isLightColor(base);
-      bar.className = "bar skill" + (isLight ? " skill-light" : "");
+      bar.className = "bar skill" + (isLight ? " skill-light" : "") + flexCls;
       return;
     }
-    bar.className="bar";
+    bar.className="bar" + flexCls;
   }
 
   // Returns true if the color is light enough to need dark text
@@ -945,13 +1033,15 @@
   function setBookAtFrontDesk(){
     if(cdTimer){ clearTimeout(cdTimer); cdTimer=null; }
     cdMode="book"; cdTarget=null;
-    currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false;
+    currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false;
 
     var curEl=document.getElementById("curv");
     var nxtEl=document.getElementById("nxtv");
     var out=document.getElementById("cdv");
     var lbl=document.getElementById("cdlbl");
     var cdEl=document.getElementById("cd");
+    var curLbl=document.getElementById("curlbl");
+    if(curLbl) curLbl.innerHTML='<span class="live-dot"></span>In Progress';
 
     if(cdEl){ cdEl.className="sec urgent"; }
     if(curEl){
@@ -1101,10 +1191,28 @@
     return info;
   }
 
+  // True only when a value looks like a REAL cancellation timestamp.
+  // CourtReserve sends null for active records, but sometimes a min-date
+  // sentinel ("0001-01-01..." or /Date(<=0)/) which must NOT count as cancelled.
+  function hasRealCancelDate(v){
+    if(v==null) return false;
+    var s=String(v).trim();
+    if(s==="") return false;
+    if(s.indexOf("0001-01-01")>=0) return false;
+    var m=s.match(/\/Date\((-?\d+)/);
+    if(m && Number(m[1])<=0) return false;
+    return true;
+  }
+
   function isCancelled(x){
     if(!x||typeof x!=="object") return false;
+    // Event-style boolean flags
     if(x.IsCanceled===true||x.IsCancelled===true||x.Cancelled===true) return true;
     if(x.IsActive===false||x.Active===false) return true;
+    // Reservation-style cancellation timestamp (null/sentinel when active)
+    if(hasRealCancelDate(x.CancelledOn)||hasRealCancelDate(x.CanceledOn)||
+       hasRealCancelDate(x.CancellationDate)||hasRealCancelDate(x.CanceledOnUtc)||
+       hasRealCancelDate(x.CancelledOnUtc)) return true;
     var s="";
     if(typeof x.Status==="string")             s+=" "+x.Status;
     if(typeof x.EventStatus==="string")        s+=" "+x.EventStatus;
@@ -1115,6 +1223,7 @@
   // ── RENDER ────────────────────────────────────────────────
   function render(cur, nxt){
     var curEl=document.getElementById("curv"), nxtEl=document.getElementById("nxtv");
+    var curLbl=document.getElementById("curlbl"), nxtLbl=document.getElementById("nxtlbl");
 
     if(cur){
       lastCurName=cur.name+fmtTime(cur);
@@ -1123,12 +1232,15 @@
       currentLevelBg=lv.overlayBg;
       currentLevelBubble=lv.bubbleColor;
       currentIsSkill=!!lv.bubbleColor;
+      currentIsFlex=isFlexDropIn(cur.name||"");
+      if(curLbl) curLbl.innerHTML='<span class="live-dot"></span>In Progress'+(currentIsFlex?' <span class="flex-tag">Flex</span>':'');
       if(curEl.style.color !== "rgb(255, 255, 255)") curEl.style.color="#ffffff";
       swapContent(curEl, cur.name+fmtTime(cur));
       setBarMode(currentIsSkill?"skill":"normal");
       startCountdown(cur.end.getTime(),"cur");
     } else {
-      currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false;
+      currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false;
+      if(curLbl) curLbl.innerHTML='<span class="live-dot"></span>In Progress';
       var dimColor = "rgba(255, 255, 255, 0.55)";
       if(curEl.style.color !== dimColor) curEl.style.color=dimColor;
       swapContent(curEl, "No current event");
@@ -1142,9 +1254,11 @@
       var nxtLv = getLevelInfo(nxt.name||"");
       var pill = nxtLv.bubbleColor ?
         "<span class='skill-pill' style='background:"+nxtLv.bubbleColor+";color:"+nxtLv.bubbleColor+"'></span>" : "";
+      if(nxtLbl) nxtLbl.innerHTML='Upcoming'+(isFlexDropIn(nxt.name||"")?' <span class="flex-tag">Flex</span>':'');
       if(nxtEl.style.color !== nxtDimColor) nxtEl.style.color=nxtDimColor;
       swapContent(nxtEl, pill+nxt.name+fmtTime(nxt));
     } else {
+      if(nxtLbl) nxtLbl.innerHTML='Upcoming';
       if(nxtEl.style.color !== nxtDimColor) nxtEl.style.color=nxtDimColor;
       swapContent(nxtEl, "No upcoming event");
     }
@@ -1168,6 +1282,7 @@
   }
 
   function normalizeResv(x){
+    if(isCancelled(x)){ dbg("DROP resv (cancelled)"); return null; }
     var s=parseTimeAny(x.StartTime||x.StartDateTime||x.Start||x.startTime||x.start);
     var e=parseTimeAny(x.EndTime  ||x.EndDateTime  ||x.End  ||x.endTime  ||x.end);
     if(!s||!e){ dbg("DROP resv (dates): "+(x.Id||"?")); return null; }
