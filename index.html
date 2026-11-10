@@ -351,6 +351,33 @@
       0%, 100% { color: #000; }
       50%      { color: #4a0000; }
     }
+    /* ── GOLDEN TICKET ── whole bar + court-number block go gold.
+       Applied on top of .skill.skill-light, so all readouts are already
+       switched to dark text; these rules only repaint the surfaces. */
+    .bar.gold {
+      background: linear-gradient(90deg,
+        #a9781a 0%, #e2b63f 25%, #fbe58a 50%, #e2b63f 75%, #a9781a 100%);
+      background-size: 200% 100%;
+      animation: goldSheen 8s ease-in-out infinite;
+      border-top-color: #fff1a8;
+    }
+    @keyframes goldSheen {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+    .bar.gold #cn {
+      background: linear-gradient(180deg, #fff3b0 0%, #f0c93a 45%, #b8860b 100%);
+    }
+    .bar.gold #cn .val {
+      color: #2a1c00;
+      -webkit-text-stroke: 1.5px #2a1c00;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+    }
+    .bar.gold .sec { border-left-color: rgba(0,0,0,0.35); }
+    .bar.gold #cur .label,
+    .bar.gold #nxt .label { color: rgba(0,0,0,0.72); }
+    .bar.gold .flex-tag { background: rgba(0,0,0,0.55); }
+
     .bar.expiring #cn { background: transparent; }
     .bar.expiring #cn .val { color: #fff; }
     .bar.red #cn { background: transparent; }
@@ -683,6 +710,7 @@
     <button class="flex" data-test="3.5 Flex (3.0 to 4.0)">3.5 Flex (pink)</button>
     <button class="flex" data-test="4.0 Flex (3.5 to 4.5)">4.0 Flex (orange)</button>
     <button class="flex" data-test="4.5 Flex (4.0 to 4.5+)">4.5 Flex (yellow)</button>
+    <button data-test="Golden Ticket Tournament">Golden Ticket (gold)</button>
     <button data-test="__overlay__">Show Event Overlay</button>
     <button data-test="__bday__">Show Birthday</button>
     <button data-test="__warn__">Show 10m Warning (Yellow)</button>
@@ -757,6 +785,17 @@
   // as a Flex drop-in and gets the diagonal stripe texture on the court block.
   var FLEX_KEYWORDS = ["flex"];
 
+  // Any event whose name contains one of these (case-insensitive) turns the
+  // whole bar and the court-number block GOLD for as long as it is in progress.
+  // Add or change words here to match how the event is named in CourtReserve.
+  var GOLD_KEYWORDS = ["golden ticket", "golden"];
+  var GOLD_COLOR    = "#d4af37";
+
+  // Last good schedule is also kept on the device, so a reload or power blip
+  // while the wifi is down still shows today's schedule (and the gold bar).
+  var LS_KEY        = "levelup_court_" + COURT_NO + "_schedule";
+  var LS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
+
   var BIRTHDAY_NAMES    = [];
   var BDAY_READER_URL   = 'https://levelup-birthday-reader-led-screens.s-jackson.workers.dev/';
   var BDAY_INTERVAL_MS  = 15 * 60 * 1000;
@@ -768,6 +807,7 @@
   var refreshTimer    = null;
   var currentLevelLabel = "", currentLevelBg = "#0c0c0c", currentLevelBubble = null, currentIsSkill = false;
   var currentIsFlex = false;
+  var currentIsGold = false;
   var cdTimer = null, cdMode = "none", cdTarget = null;
   var nxtStart = null, lastCurName = "", lastGood = null;
   var cacheEv = [], cacheRes = [];
@@ -907,6 +947,31 @@
     return false;
   }
 
+  // True when the event name marks it as a Golden Ticket event
+  function isGoldEvent(name){
+    if(!name) return false;
+    var nl=String(name).toLowerCase();
+    for(var i=0;i<GOLD_KEYWORDS.length;i++)
+      if(nl.indexOf(GOLD_KEYWORDS[i].toLowerCase())>=0) return true;
+    return false;
+  }
+
+  // ── ON-DEVICE SCHEDULE CACHE ─────────────────────────
+  function saveSchedule(){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({t:Date.now(), events:cacheEv, reservations:cacheRes}));
+    }catch(e){}
+  }
+  function loadSchedule(){
+    try{
+      var o=JSON.parse(localStorage.getItem(LS_KEY)||"null");
+      if(!o||!o.t||(Date.now()-o.t)>LS_MAX_AGE_MS) return false;
+      cacheEv =Array.isArray(o.events)?o.events:[];
+      cacheRes=Array.isArray(o.reservations)?o.reservations:[];
+      return (cacheEv.length+cacheRes.length)>0;
+    }catch(e){ return false; }
+  }
+
   // ── CLOCK ────────────────────────────────────────────
   function tickClock(){
     document.getElementById("clock").textContent = toLocalNY(new Date());
@@ -964,7 +1029,7 @@
     }
     // Flex stripes only apply in the calm states (normal / skill), not the
     // red / expiring takeovers which repaint the whole bar.
-    var flexCls = currentIsFlex ? " flex" : "";
+    var flexCls = (currentIsFlex ? " flex" : "") + (currentIsGold ? " gold" : "");
     if(mode==="expiring"){
       bar.className="bar expiring";
       cn.className="sec alert";
@@ -1027,7 +1092,7 @@
   function setIdle(){
     if(cdTimer){ clearTimeout(cdTimer); cdTimer=null; }
     cdMode="none"; cdTarget=null;
-    currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false;
+    currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false; currentIsGold=false;
 
     var curEl=document.getElementById("curv");
     var nxtEl=document.getElementById("nxtv");
@@ -1161,7 +1226,13 @@
   function getLevelInfo(title){
     var t=(title||""), tl=t.toLowerCase();
     var tn=tl.replace(/\s+/g,"").replace(/[–—]/g,"-");
-    var info={bubbleColor:null,label:"",overlayBg:"#0c0c0c"};
+    var info={bubbleColor:null,label:"",overlayBg:"#0c0c0c",gold:false};
+
+    // Golden Ticket wins over any skill level in the name
+    if(isGoldEvent(t)){
+      info.bubbleColor=GOLD_COLOR; info.label="Golden Ticket"; info.overlayBg=GOLD_COLOR; info.gold=true;
+      return info;
+    }
 
     // ── Flex-tier headline colours ──
     // Match names like "3.5 Flex (3.0 to 4.0)", "4.0 Flex (3.5 to 4.5)",
@@ -1244,13 +1315,14 @@
       currentLevelBubble=lv.bubbleColor;
       currentIsSkill=!!lv.bubbleColor;
       currentIsFlex=isFlexDropIn(cur.name||"");
+      currentIsGold=!!lv.gold;
       if(curLbl) curLbl.innerHTML='<span class="live-dot"></span>In Progress'+(currentIsFlex?' <span class="flex-tag">Flex</span>':'');
       if(curEl.style.color !== "rgb(255, 255, 255)") curEl.style.color="#ffffff";
       swapContent(curEl, cur.name+fmtTime(cur));
       setBarMode(currentIsSkill?"skill":"normal");
       startCountdown(cur.end.getTime(),"cur");
     } else {
-      currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false;
+      currentLevelLabel=""; currentLevelBg="#0c0c0c"; currentLevelBubble=null; currentIsSkill=false; currentIsFlex=false; currentIsGold=false;
       if(curLbl) curLbl.innerHTML='<span class="live-dot"></span>In Progress';
       var dimColor = "rgba(255, 255, 255, 0.55)";
       if(curEl.style.color !== dimColor) curEl.style.color=dimColor;
@@ -1387,6 +1459,7 @@
         }
         cacheEv =pickArray(data.events);
         cacheRes=pickArray(data.reservations);
+        saveSchedule();
         computeAndRender();
       } else {
         var msg="API issue — backing off…";
@@ -1686,6 +1759,9 @@
   // ── INIT ────────────────────────────────────────────
   document.getElementById("cno").textContent=String(COURT_NO);
   tickClock();
+  // Paint from the on-device copy first, so the bar is right even before
+  // (or without) the first successful fetch.
+  if(loadSchedule()){ try{ computeAndRender(); }catch(e){} }
   refresh();
   scheduleNext();
   startOverlayLoop();
