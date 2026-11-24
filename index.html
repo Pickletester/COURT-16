@@ -1754,7 +1754,7 @@
     var mNow = new Date().getMinutes();
     if(mNow % 15 === 0) return;
     var curEl=document.getElementById("curv");
-    if(curEl&&overlayBodyEl){ var __t=curEl.textContent||""; overlayBodyEl.innerHTML=/no current event/i.test(__t)?"":(curEl.innerHTML||__t); }
+    if(curEl&&overlayBodyEl){ var __t=curEl.textContent||""; overlayBodyEl.innerHTML=curEl.innerHTML||__t; }
     applyOverlayStyles();
     infoOverlay.classList.add("active");
     setTimeout(function(){ infoOverlay.classList.remove("active"); },10000);
