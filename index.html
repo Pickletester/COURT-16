@@ -663,7 +663,21 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
-  </style>
+      /* ── CHRISTMAS THEME: only active while html.xmas is set (script in head) ── */
+    html.xmas #cn {
+      background: radial-gradient(circle at 50% 35%, #e53935 0%, #a31621 60%, #5e0a12 100%) !important;
+      box-shadow: inset 0 0 0 3px #f5c542;
+    }
+    html.xmas .bar.skill #cn { background: radial-gradient(circle at 50% 35%, #e53935 0%, #a31621 60%, #5e0a12 100%) !important; }
+</style>
+<script>
+// Christmas theme switch: on until 1 Jan 2027 00:00 ET, then the normal look returns automatically.
+(function(){
+  try {
+    if (Date.now() < Date.parse("2027-01-01T00:00:00-05:00")) document.documentElement.classList.add("xmas");
+  } catch(e) {}
+})();
+</script>
 </head>
 <body>
 
