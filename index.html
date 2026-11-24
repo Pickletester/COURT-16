@@ -1748,6 +1748,7 @@
       overlayLvlEl.textContent="";
       overlayLvlEl.style.color="";
       overlayBoxEl.style.background = "";
+      overlayBoxEl.setAttribute("data-bg", "#0c0c0c");
       overlayBoxEl.style.color = "";
       overlayBodyEl.style.color = "";
       overlayBoxEl.style.border = "";
@@ -1769,7 +1770,7 @@
     var mNow = new Date().getMinutes();
     if(mNow % 15 === 0) return;
     var curEl=document.getElementById("curv");
-    if(curEl&&overlayBodyEl) overlayBodyEl.innerHTML=curEl.innerHTML||curEl.textContent||"";
+    if(curEl&&overlayBodyEl){ var __t=curEl.textContent||""; overlayBodyEl.innerHTML=/no current event/i.test(__t)?"":(curEl.innerHTML||__t); }
     applyOverlayStyles();
     infoOverlay.classList.add("active");
     setTimeout(function(){ infoOverlay.classList.remove("active"); },10000);
