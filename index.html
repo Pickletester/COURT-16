@@ -1222,7 +1222,7 @@
 
   // ── CLOCK ────────────────────────────────────────────
   function tickClock(){
-    document.getElementById("clock").textContent = toLocalNY(new Date()).replace(/\s*[AaPp][Mm]$/, "");
+    document.getElementById("clock").textContent = (document.documentElement.classList.contains("xmas") ? toLocalNY(new Date()).replace(/\s*[AaPp][Mm]$/, "") : toLocalNY(new Date()));
     var now=new Date();
     var delay=1000-now.getMilliseconds();
     setTimeout(tickClock, delay<250?250:delay);
