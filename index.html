@@ -786,6 +786,7 @@
     /* ── CHRISTMAS: popup artwork (blank gift picture per level) with live logo and rating in its slots ── */
     html.xmas #infoOverlay .overlayBox {
       position: relative !important;
+      container-type: inline-size;
       width: min(845px, 92vw) !important;
       aspect-ratio: 845 / 384 !important;
       min-width: 0 !important; padding: 0 !important; border: 0 !important;
@@ -797,12 +798,12 @@
     html.xmas #overlayBox .overlayLogo {
       position: absolute; left: 34.2%; top: 41.4%; width: 31.6%; height: 21.35%;
       margin: 0 !important; max-width: none !important; box-sizing: border-box;
-      object-fit: contain; padding: 4% 6%; border-radius: 10px; background: #17120e;
+      object-fit: contain; padding: 2% 3%; border-radius: 10px; background: #17120e;
     }
     html.xmas #overlayBox #overlayLevel {
       position: absolute !important; left: 30.65%; top: 65.9%; width: 38.7%; height: 15.6%;
       margin: 0 !important; display: flex !important; align-items: center; justify-content: center;
-      font-family: 'Impact', 'Arial Black', sans-serif; font-size: 3.6vw; color: #fff !important;
+      font-family: 'Impact', 'Arial Black', sans-serif; font-size: 4.2cqw; white-space: nowrap; color: #fff !important;
       background: transparent !important; box-shadow: none !important; padding: 0 !important; line-height: 1;
     }
     html.xmas #overlayBox[data-bg="#0ea5e9"] { background: url(gift-20-299.svg) center / 100% 100% no-repeat !important; }
@@ -832,6 +833,12 @@
       background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important;
       font-size: 3vw; font-weight: 800; line-height: 1; color: #2a0a10 !important; text-align: center;
       display: flex !important; align-items: center; justify-content: center;
+    }
+
+    /* overlay backdrop: black at 50% with snow behind the gift popup */
+    html.xmas #infoOverlay {
+      background: rgba(0,0,0,.5) url(snow-bg.svg) center / cover no-repeat !important;
+      backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     }
 </style>
 <script>
